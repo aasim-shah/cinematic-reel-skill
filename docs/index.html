@@ -98,14 +98,16 @@
   .beat p { font-size: 14px; color: #cfc9bf; line-height: 1.5; }
 
   /* effect demo clips */
-  .fx-clips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 36px 0 12px; }
+  .fx-clips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px 18px; margin: 36px 0 14px; }
   .fx-clip { margin: 0; }
   .fx-frame { aspect-ratio: 9 / 16; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #000; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
   .fx-frame video { width: 100%; height: 100%; object-fit: cover; }
   .fx-clip figcaption { margin-top: 12px; font-size: 14.5px; color: #cfc9bf; line-height: 1.5; }
   .fx-clip figcaption b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--film); margin-bottom: 4px; }
-  .fx-note { color: var(--muted); font-size: 14.5px; margin-bottom: 18px; }
-  @media (max-width: 600px) { .fx-clips { grid-template-columns: 1fr; max-width: 320px; margin-left: auto; margin-right: auto; } }
+  .fx-note { color: var(--muted); font-size: 14.5px; }
+  .fx-when { display: block; color: var(--signal); font-family: "Kalam", cursive; font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+  @media (max-width: 960px) { .fx-clips { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 600px) { .fx-clips { grid-template-columns: repeat(2, 1fr); gap: 18px 12px; } }
 
   /* code */
   pre { position: relative; background: var(--ink-2); border: 1px solid var(--line); border-left: 3px solid var(--signal); border-radius: var(--radius); padding: 18px 20px; margin: 14px 0; overflow-x: auto; font-family: "IBM Plex Mono", monospace; font-size: 14px; line-height: 1.6; color: #e9e3d9; }
@@ -427,28 +429,20 @@ make the storyboard for @interview.mp4 but don't render yet</code></pre>
       <h2>Twelve effects,<br>used sparingly</h2>
       <p class="sub">On top of the beat modules, Claude places 3–6 creative effects per reel, each on a good face moment that matches its line. At most one every 6–8 seconds: a few well-timed effects look premium, a parade looks like a template.</p>
       <div class="fx-clips">
-        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-pull-back.mp4" poster="media/fx-pull-back.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Pull-back reveal effect demo"></video></div><figcaption><b>Pull-back reveal</b>Macro on one stamp, then one long pull-back to the whole evidence board.</figcaption></figure>
-        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-zoom-through.mp4" poster="media/fx-zoom-through.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Zoom-through cut effect demo"></video></div><figcaption><b>Zoom-through cut</b>The red pin opens into a ring and the camera flies through it into the next shot.</figcaption></figure>
-        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-paper-tear.mp4" poster="media/fx-paper-tear.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Paper tear effect demo"></video></div><figcaption><b>Paper tear</b>A paper sheet covers the cut, tears down the middle and pulls apart.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-cover-story.mp4" poster="media/fx-cover-story.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Cover story effect demo"></video></div><figcaption><b>01 · Cover story</b><span class="fx-when">Hook or theme line</span>Your shot becomes a magazine cover, masthead behind your head.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-frame-break.mp4" poster="media/fx-frame-break.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Frame break effect demo"></video></div><figcaption><b>02 · Frame break</b><span class="fx-when">Content, reels, "you watching this"</span>You break out of a floating reel card, which then fills the frame.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-chart-grow.mp4" poster="media/fx-chart-grow.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Chart grow effect demo"></video></div><figcaption><b>03 · Chart grow</b><span class="fx-when">A trend or a number with a direction</span>A red line chart climbs on the wall behind you.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-zoom-through.mp4" poster="media/fx-zoom-through.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Zoom-through cut effect demo"></video></div><figcaption><b>04 · Zoom-through cut</b><span class="fx-when">Joining two effects</span>The chart's end dot opens into a red ring the camera flies through.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-vertigo.mp4" poster="media/fx-vertigo.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Vertigo effect demo"></video></div><figcaption><b>05 · Vertigo</b><span class="fx-when">One shock claim (once per reel)</span>Dolly zoom: the room stretches away while you hold still.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-pull-back.mp4" poster="media/fx-pull-back.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Pull-back reveal effect demo"></video></div><figcaption><b>06 · Pull-back reveal</b><span class="fx-when">A detail that widens to the big picture</span>Macro on one stamp, then one long pull-back to the board. Also hides a bad take.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-paper-tear.mp4" poster="media/fx-paper-tear.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Paper tear effect demo"></video></div><figcaption><b>07 · Paper tear</b><span class="fx-when">Changing chapter</span>A paper sheet covers the cut, tears down the middle and pulls apart.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-couch-wall.mp4" poster="media/fx-couch-wall.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Couch wall effect demo"></video></div><figcaption><b>08 · Couch wall</b><span class="fx-when">Your work, history or routine</span>A lamp-lit wall of your video thumbnails behind you.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-phone-mockup.mp4" poster="media/fx-phone-mockup.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Phone mockup effect demo"></video></div><figcaption><b>09 · Phone mockup</b><span class="fx-when">Posting, a profile, an app</span>A 3D phone floats beside you; a new post lands and followers tick up.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-paper-cut.mp4" poster="media/fx-paper-cut.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Paper cut + doodle boil effect demo"></video></div><figcaption><b>10 · Paper cut + doodle boil</b><span class="fx-when">Creativity or personality</span>You become a paper sticker with hand-drawn doodles that boil.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-orbit.mp4" poster="media/fx-orbit.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Orbit effect demo"></video></div><figcaption><b>11 · Orbit</b><span class="fx-when">A list of 2–4 questions or options</span>Question cards orbit your head, then a red ring lands on you.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-headline-wall.mp4" poster="media/fx-headline-wall.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Headline wall effect demo"></video></div><figcaption><b>12 · Headline wall</b><span class="fx-when">Public fear, news, "what people say"</span>A wall of headlines; the wrong one struck, the right one circled.</figcaption></figure>
       </div>
-      <p class="fx-note">These three effects run without the speaker on screen, so they are shown here. The other nine are built around the speaker's cut-out and are described in the table.</p>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Effect</th><th>Used when the line is about…</th><th>On screen</th></tr></thead>
-        <tbody>
-          <tr><td><b>Cover story</b></td><td>The hook or the theme line</td><td>Your shot becomes a magazine cover, masthead behind your head</td></tr>
-          <tr><td><b>Frame break</b></td><td>Content, reels, "you watching this"</td><td>You step out of a reel card</td></tr>
-          <tr><td><b>Chart grow</b></td><td>A trend or a number with a direction</td><td>A red line chart climbs on the wall behind you</td></tr>
-          <tr><td><b>Vertigo</b></td><td>One shock claim (once per reel)</td><td>Dolly-zoom on the room while you stay still</td></tr>
-          <tr><td><b>Couch wall</b></td><td>Your work, history or routine</td><td>A lamp-lit wall of your video thumbnails behind you</td></tr>
-          <tr><td><b>Phone mockup</b></td><td>Posting, a profile, an app</td><td>A 3D phone floats beside you showing a creator profile</td></tr>
-          <tr><td><b>Paper cut + doodle boil</b></td><td>Creativity or personality</td><td>You become a paper sticker with hand-drawn doodles</td></tr>
-          <tr><td><b>Orbit</b></td><td>A list of 2–4 questions or options</td><td>Question cards orbit your head, passing behind and in front</td></tr>
-          <tr><td><b>Headline wall</b></td><td>Public fear, news, "what people say"</td><td>A wall of headline clippings; the wrong one struck, the right one circled</td></tr>
-          <tr><td><b>Pull-back reveal</b></td><td>A detail that widens to the big picture</td><td>Macro detail pulls back to the full evidence board; also hides a bad take</td></tr>
-          <tr><td><b>Zoom-through cut</b></td><td>Joining two effects</td><td>Camera flies through a red ring</td></tr>
-          <tr><td><b>Paper tear</b></td><td>Changing chapter</td><td>Full-sheet paper rip transition</td></tr>
-        </tbody>
-      </table></div>
+      <p class="fx-note">Demos are cut from the effects showcase. The speaker is shown as a dark silhouette here; in your reel it is you.</p>
     </div>
   </section>
 

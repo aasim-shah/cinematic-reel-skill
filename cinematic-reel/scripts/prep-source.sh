@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prepare a raw phone clip for a paper-reel project.
+# Prepare a raw phone clip for a cinematic-reel project.
 #   - iPhone HLG/Dolby Vision HDR -> SDR Rec.709 (macOS avconvert does the tonemap)
 #   - 1080x1920 vertical, 30 fps, keyframe every second (seek-safe for HyperFrames)
 #   - voice cleanup (tuned for Hollyland Lark A1 Mini into iPhone): high-pass 80 Hz, light FFT denoise,

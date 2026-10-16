@@ -13,7 +13,7 @@ Landing page and install guide: https://aasim-shah.github.io/cinematic-reel-skil
 - **Silence removal:** dead air and long pauses go. Each cut starts just before the first word and ends where the silence begins, with 20–40 ms audio ramps so no cut clicks.
 - **Face QC:** every frame is checked for closed eyes, looking away, odd expressions and jump cuts. A full-screen evidence board covers each bad moment while the voice keeps playing.
 - **Documentary look:** a natural-skin grade, 2.39 letterbox moments, film grain, a typed `FILE 01` HUD with running timecode, word-by-word subtitles, chapter titles with a red hand circle, and a giant word behind the speaker's head (AI person matte).
-- **12 creative effects**, 3–6 per reel, each on a good face moment that matches its line:
+- **12 creative effects**, 3–6 per reel, each on a good face moment that matches its line. Three of them play as looping demos on the [landing page](https://aasim-shah.github.io/cinematic-reel-skill/#effects):
 
   | Effect | Used when the line is about… |
   |---|---|

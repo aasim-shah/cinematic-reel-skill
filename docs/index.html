@@ -97,6 +97,16 @@
   .beat b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--film); margin-bottom: 8px; }
   .beat p { font-size: 14px; color: #cfc9bf; line-height: 1.5; }
 
+  /* effect demo clips */
+  .fx-clips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin: 36px 0 12px; }
+  .fx-clip { margin: 0; }
+  .fx-frame { aspect-ratio: 9 / 16; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); background: #000; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+  .fx-frame video { width: 100%; height: 100%; object-fit: cover; }
+  .fx-clip figcaption { margin-top: 12px; font-size: 14.5px; color: #cfc9bf; line-height: 1.5; }
+  .fx-clip figcaption b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--film); margin-bottom: 4px; }
+  .fx-note { color: var(--muted); font-size: 14.5px; margin-bottom: 18px; }
+  @media (max-width: 600px) { .fx-clips { grid-template-columns: 1fr; max-width: 320px; margin-left: auto; margin-right: auto; } }
+
   /* code */
   pre { position: relative; background: var(--ink-2); border: 1px solid var(--line); border-left: 3px solid var(--signal); border-radius: var(--radius); padding: 18px 20px; margin: 14px 0; overflow-x: auto; font-family: "IBM Plex Mono", monospace; font-size: 14px; line-height: 1.6; color: #e9e3d9; }
   code { font-family: "IBM Plex Mono", monospace; font-size: 0.9em; background: var(--ink-3); padding: 2px 6px; border-radius: 4px; }
@@ -416,6 +426,12 @@ make the storyboard for @interview.mp4 but don't render yet</code></pre>
       <div class="mono kicker"><span class="sq"></span>Effects library</div>
       <h2>Twelve effects,<br>used sparingly</h2>
       <p class="sub">On top of the beat modules, Claude places 3–6 creative effects per reel, each on a good face moment that matches its line. At most one every 6–8 seconds: a few well-timed effects look premium, a parade looks like a template.</p>
+      <div class="fx-clips">
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-pull-back.mp4" poster="media/fx-pull-back.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Pull-back reveal effect demo"></video></div><figcaption><b>Pull-back reveal</b>Macro on one stamp, then one long pull-back to the whole evidence board.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-zoom-through.mp4" poster="media/fx-zoom-through.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Zoom-through cut effect demo"></video></div><figcaption><b>Zoom-through cut</b>The red pin opens into a ring and the camera flies through it into the next shot.</figcaption></figure>
+        <figure class="fx-clip"><div class="fx-frame"><video src="media/fx-paper-tear.mp4" poster="media/fx-paper-tear.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Paper tear effect demo"></video></div><figcaption><b>Paper tear</b>A paper sheet covers the cut, tears down the middle and pulls apart.</figcaption></figure>
+      </div>
+      <p class="fx-note">These three effects run without the speaker on screen, so they are shown here. The other nine are built around the speaker's cut-out and are described in the table.</p>
       <div class="table-wrap"><table>
         <thead><tr><th>Effect</th><th>Used when the line is about…</th><th>On screen</th></tr></thead>
         <tbody>

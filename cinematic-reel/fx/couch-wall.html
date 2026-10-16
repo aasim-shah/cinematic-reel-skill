@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: COUCH WALL  (cinematic-reel effects library)
+        The room behind the speaker is replaced by a lamp-lit wall of his own video thumbnails
+        (stills from the take), slightly perspective-tilted and drifting in parallax.
+        Layers (bottom → top):
+          plate video (only the table at the bottom stays visible) → thumbnail wall (masked out above
+          the table line) → lamp + head shadow → matte cut-out (.cw-fg) → red frames' note.
+        On the money words one or two tiles get a red frame drawn round them and a red Kalam note.
+        Reuse: edit CONFIG (script) + the two <video> media attributes below. Stills live in
+        assets/fx/couch-wall/thumb-NN.jpg (ffmpeg stills of the take, 300×534). Prefix: cw-
+      -->
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-couchwall-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        #cw-cam { position: absolute; inset: 0; transform-origin: 56% 40%; }
+        .cw-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .cw-fg { clip-path: polygon(330px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 1080px, 330px 1080px); }
+
+        /* the wall replaces the room; it fades out at the table line so the real table stays */
+        #cw-room {
+          position: absolute; inset: 0; perspective: 2200px; perspective-origin: 56% 36%;
+          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 1560px, transparent 1650px);
+          mask-image: linear-gradient(180deg, #000 0, #000 1560px, transparent 1650px);
+        }
+        #cw-wall {
+          position: absolute; left: -200px; top: -200px; width: 1480px; height: 2320px; transform-origin: 50% 40%;
+          background-color: #26282a; background-image: url("assets/tex/felt.png"); background-size: 700px 700px; background-blend-mode: multiply;
+        }
+        /* tiles are positioned in wall space (wall origin = screen -200,-200) */
+        .cw-tile { position: absolute; width: 246px; height: 420px; background: #111; box-shadow: 0 16px 30px rgba(0, 0, 0, 0.6), 0 3px 6px rgba(0, 0, 0, 0.5); outline: 1px solid rgba(239, 233, 223, 0.14); }
+        .cw-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.62) saturate(0.8) contrast(1.06); }
+        .cw-scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 170px; background: linear-gradient(180deg, rgba(5, 5, 5, 0) 0%, rgba(5, 5, 5, 0.82) 100%); }
+        .cw-ttl { position: absolute; left: 14px; right: 14px; bottom: 58px; font-family: "Anton", sans-serif; font-size: 50px; line-height: 56px; color: #efe9df; text-transform: uppercase; white-space: nowrap; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7); }
+        .cw-ttl b { font-weight: 400; color: #e0301e; }
+        .cw-lbl { position: absolute; left: 14px; bottom: 16px; display: flex; align-items: center; gap: 8px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 15px; letter-spacing: 0.14em; color: #efe9df; opacity: 0.82; white-space: nowrap; }
+        .cw-lbl i { display: block; width: 8px; height: 8px; background: #e0301e; }
+        .cw-frame { position: absolute; left: -11px; top: -11px; width: 268px; height: 442px; overflow: visible; }
+        .cw-frame rect { fill: none; stroke: #e0301e; stroke-width: 7; filter: drop-shadow(0 0 10px rgba(224, 48, 30, 0.6)); }
+
+        /* lamp pool over the wall + top falloff (keeps the HUD band calm) + soft shadow the speaker throws on the wall */
+        #cw-lamp { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 46% at 52% 30%, rgba(255, 236, 214, 0.1) 0%, rgba(255, 236, 214, 0.02) 40%, rgba(0, 0, 0, 0.66) 100%); }
+        #cw-top { position: absolute; left: 0; top: 0; width: 1080px; height: 340px; background: linear-gradient(180deg, rgba(5, 5, 5, 0.88) 0%, rgba(5, 5, 5, 0) 100%); }
+        #cw-shadow { position: absolute; inset: 0; background: radial-gradient(ellipse 34% 30% at 60% 44%, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0) 100%); }
+
+        /* red pen note */
+        #cw-note { position: absolute; left: 40px; top: 508px; height: 92px; font-family: "Kalam", cursive; font-weight: 700; font-size: 66px; line-height: 92px; color: #e0301e; white-space: nowrap; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85), 0 0 26px rgba(0, 0, 0, 0.6); transform: rotate(-5deg); }
+        #cw-uline { position: absolute; left: 44px; top: 592px; width: 230px; height: 30px; overflow: visible; }
+        #cw-uline path { fill: none; stroke: #e0301e; stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)); }
+      </style>
+
+      <div id="fx-couchwall-root" data-composition-id="fx-couchwall" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="cw-cam" data-layout-allow-overflow="">
+          <!-- PLATE: assets/take.mp4. data-media-start = source second where this slot begins; data-duration = slot length. Muted (the root plays the voice). -->
+          <video id="cw-plate" class="cw-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="4.4" data-media-start="52.4" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+
+          <div id="cw-room" data-layout-allow-overflow="" data-layout-allow-overlap="">
+            <div id="cw-wall" data-layout-allow-overflow="" data-layout-allow-overlap=""></div>
+            <div id="cw-lamp"></div>
+            <div id="cw-top"></div>
+            <div id="cw-shadow"></div>
+          </div>
+
+          <!-- MATTE: VP9-with-alpha cut-out of the same take (its own media-start, same duration). Muted. -->
+          <video id="cw-fg" class="cw-vid cw-fg clip" src="assets/m1-fg.webm" muted playsinline data-start="0" data-duration="4.4" data-media-start="0" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+
+        <div id="cw-note"></div>
+        <svg id="cw-uline" viewBox="0 0 230 30"><path id="cw-uline-p" pathLength="1" d="M6 18 C 60 8, 140 6, 222 14"></path></svg>
+      </div>
+
+      <script>
+        (function () {
+          /* ================= CONFIG: everything a reuse needs to change ================= */
+          var CONFIG = {
+            duration: 4.4,                                   // slot length (s)
+            imgPath: "assets/fx/couch-wall/thumb-",          // stills: <imgPath>NN.jpg, NN = 01..imgCount
+            imgCount: 13,
+            // grid in SCREEN px (wall is drawn 1:1 with the frame before tilt). Pick columns so one
+            // full column sits each side of the head; label rows must stay out of y 100–170 and 1436–1576.
+            colX: [-250, 20, 290, 560, 830, 1100],           // tile left edges (246 px wide, 24 px gutters)
+            rowY: [-360, 84, 528, 972, 1416],                // tile top edges (420 px tall, 24 px gutters)
+            // thumbnail titles (Anton, like real covers); key "c,r" = column,row index; <b> = red word
+            titles: { "1,2": "AI vs <b>JOB</b>", "4,2": "2029?", "2,1": "SKILL", "0,3": "<b>100%</b>", "5,1": "BRAND", "3,3": "<b>PAISA</b>" },
+            seed: 7,                                          // seeds which still lands on which tile
+            frames: [                                          // red frames on the key words
+              { at: 2.64, tile: "4,1" },                      // "paise"
+              { at: 3.36, tile: "1,1" }                       // "salary"
+            ],
+            note: { text: "salary", at: 3.42 },              // red Kalam note (sits under the second framed tile)
+            drift: { x: [16, -22], y: [10, -8], rotY: [-7, -4], rotX: [2.5, 1.5] },  // slow parallax of the wall
+            settle: { from: 1.05, dur: 1.8 },                // wall eases from this scale to 1 at the start (reads through the paper tear)
+            push: { from: 1.0, to: 1.03 }                    // camera push over the whole slot
+          };
+          /* ============================================================================ */
+
+          var tl = gsap.timeline({ paused: true });
+          var wall = document.getElementById("cw-wall");
+          var WALL_OFF = 200; // #cw-wall is offset by -200,-200 so tiles can overhang the frame
+
+          // seeded hash → deterministic still order and tape labels
+          function rnd(n) { var x = Math.sin(n * 127.1 + CONFIG.seed * 311.7) * 43758.5453; return x - Math.floor(x); }
+          var tiles = {};
+          var k = 0;
+          CONFIG.rowY.forEach(function (ry, r) {
+            CONFIG.colX.forEach(function (cx, c) {
+              k++;
+              var key = c + "," + r;
+              var t = document.createElement("div"); t.className = "cw-tile";
+              t.style.left = (cx + WALL_OFF) + "px"; t.style.top = (ry + WALL_OFF) + "px";
+              var img = document.createElement("img"); img.className = "cw-img";
+              var idx = ((k * 5 + Math.floor(rnd(k) * 3)) % CONFIG.imgCount) + 1;
+              img.src = CONFIG.imgPath + (idx < 10 ? "0" : "") + idx + ".jpg";
+              t.appendChild(img);
+              var sc = document.createElement("div"); sc.className = "cw-scrim"; t.appendChild(sc);
+              if (CONFIG.titles[key]) { var tt = document.createElement("div"); tt.className = "cw-ttl"; tt.innerHTML = CONFIG.titles[key]; t.appendChild(tt); }
+              var lb = document.createElement("div"); lb.className = "cw-lbl";
+              var mm = Math.floor(rnd(k + 40) * 3), ss = Math.floor(rnd(k + 80) * 60);
+              lb.innerHTML = "<i></i><span>TAPE " + (k < 10 ? "0" : "") + k + " · 0" + mm + ":" + (ss < 10 ? "0" : "") + ss + "</span>";
+              t.appendChild(lb);
+              wall.appendChild(t);
+              tiles[key] = t;
+            });
+          });
+
+          // red frames (SVG rect drawn on with stroke-dashoffset, pathLength = 1)
+          var SVGNS = "http://www.w3.org/2000/svg";
+          CONFIG.frames.forEach(function (f, i) {
+            var t = tiles[f.tile]; if (!t) return;
+            var svg = document.createElementNS(SVGNS, "svg"); svg.setAttribute("class", "cw-frame"); svg.setAttribute("viewBox", "0 0 268 442");
+            var rect = document.createElementNS(SVGNS, "rect");
+            rect.setAttribute("x", "4"); rect.setAttribute("y", "4"); rect.setAttribute("width", "260"); rect.setAttribute("height", "434");
+            rect.setAttribute("pathLength", "1"); rect.setAttribute("id", "cw-fr-" + i);
+            svg.appendChild(rect); t.appendChild(svg);
+            gsap.set(rect, { attr: { "stroke-dasharray": "1 1", "stroke-dashoffset": 1 } });
+            tl.to(rect, { attr: { "stroke-dashoffset": 0 }, duration: 0.36, ease: "power2.out" }, f.at);
+            // the framed tile wakes up: full brightness, a hair forward
+            tl.fromTo(t.querySelector(".cw-img"), { filter: "brightness(0.62) saturate(0.8) contrast(1.06)" }, { filter: "brightness(1) saturate(0.95) contrast(1.06)", duration: 0.5, ease: "sine.inOut" }, f.at);
+            tl.fromTo(t, { scale: 1, zIndex: 1 }, { scale: 1.04, zIndex: 5, duration: 0.6, ease: "sine.inOut" }, f.at);
+          });
+
+          // wall: settle + slow parallax drift (one tween each, seek-safe)
+          var D = CONFIG.drift;
+          tl.fromTo(wall, { x: D.x[0], y: D.y[0], rotationY: D.rotY[0], rotationX: D.rotX[0] }, { x: D.x[1], y: D.y[1], rotationY: D.rotY[1], rotationX: D.rotX[1], duration: CONFIG.duration, ease: "sine.inOut" }, 0);
+          tl.fromTo(wall, { scale: CONFIG.settle.from }, { scale: 1, duration: CONFIG.settle.dur, ease: "power2.out" }, 0);
+          tl.fromTo("#cw-cam", { scale: CONFIG.push.from }, { scale: CONFIG.push.to, duration: CONFIG.duration, ease: "power1.inOut" }, 0);
+
+          // red Kalam note writes on left → right, then its underline
+          document.getElementById("cw-note").textContent = CONFIG.note.text;
+          tl.fromTo("#cw-note", { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.45, ease: "sine.inOut" }, CONFIG.note.at);
+          gsap.set("#cw-uline-p", { attr: { "stroke-dasharray": "1 1", "stroke-dashoffset": 1 } });
+          tl.to("#cw-uline-p", { attr: { "stroke-dashoffset": 0 }, duration: 0.28, ease: "power2.out" }, CONFIG.note.at + 0.42);
+
+          window.__timelines["fx-couchwall"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reel Storyboard</title>
+<!--
+  Paper-reel storyboard page.
+  Copy to videos/<name>/storyboard/index.html, put beat snapshots in storyboard/frames/
+  (npx hyperframes snapshot --at "<t1>,<t2>,..." --output storyboard/frames),
+  then fill PROJECT and BEATS below. One entry per "## Frame N" in STORYBOARD.md.
+-->
+<style>
+  :root { --bg:#ebe6dc; --card:#f8f5ef; --ink:#1c1a17; --muted:#6b655c; --line:#d9d2c5; --accent:#a8402c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141210; --card:#1e1b18; --ink:#eee8de; --muted:#a59d91; --line:#34302b; --accent:#e08a6f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, system-ui, sans-serif; padding: 24px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .card img { width: 100%; aspect-ratio: 9/16; object-fit: cover; display: block; background: #000; }
+  .meta { padding: 12px 14px 14px; }
+  .head { font-weight: 600; margin-bottom: 8px; }
+  .head em { float: right; font-style: normal; font-weight: 400; color: var(--muted); }
+  .row { font-size: 13px; margin: 4px 0; }
+  .row span { display: inline-block; width: 76px; color: var(--muted); }
+  .row.qc { color: var(--accent); }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="grid" id="grid"></div>
+<script>
+  var PROJECT = { name: "<project>", sub: "1080×1920 · <duration> s · <n> beats" };
+  // [title, time, frame file, layout, on-screen text, motion, sound, spoken line, face QC note ("" if none)]
+  var BEATS = [
+    ["Hook", "0.00–3.85", "frame-00-at-1.6s.png", "Full face + title", "…", "Slow zoom 1.00→1.10", "Voice", "…", ""],
+  ];
+  document.getElementById("title").textContent = PROJECT.name + " · storyboard";
+  document.getElementById("sub").textContent = PROJECT.sub;
+  var grid = document.getElementById("grid");
+  BEATS.forEach(function (b, i) {
+    var card = document.createElement("article");
+    card.className = "card";
+    var img = document.createElement("img");
+    img.src = "frames/" + b[2];
+    img.alt = "Frame " + (i + 1);
+    card.appendChild(img);
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var head = document.createElement("div");
+    head.className = "head";
+    head.textContent = String(i + 1).padStart(2, "0") + " " + b[0];
+    var em = document.createElement("em");
+    em.textContent = b[1] + " s";
+    head.appendChild(em);
+    meta.appendChild(head);
+    [["Layout", b[3]], ["On screen", b[4]], ["Motion", b[5]], ["Sound", b[6]], ["Spoken", b[7]], ["Face QC", b[8]]].forEach(function (r) {
+      if (!r[1]) return;
+      var row = document.createElement("div");
+      row.className = "row" + (r[0] === "Face QC" ? " qc" : "");
+      var label = document.createElement("span");
+      label.textContent = r[0];
+      row.appendChild(label);
+      row.appendChild(document.createTextNode(r[1]));
+      meta.appendChild(row);
+    });
+    card.appendChild(meta);
+    grid.appendChild(card);
+  });
+</script>
+</body>
+</html>

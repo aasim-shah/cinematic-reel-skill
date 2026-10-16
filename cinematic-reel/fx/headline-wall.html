@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: HEADLINE WALL (face effect, needs a person matte)
+        The room behind the speaker is replaced by a felt wall pinned with paper headline clippings and
+        search-bar bubbles. The matte keeps him in front, with a soft cast shadow on the wall.
+        On the spoken words one clipping gets a red strike and another a red hand circle. The wall drifts slowly.
+        Layering: plate (.hw-plate) -> wall (#hw-wallmask) -> cast shadow (#hw-shadow) -> matte (.take-fg).
+        Reuse: copy, edit CONFIG (copy, cue times, item layout) and the MEDIA attributes marked below.
+      -->
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "IBM Plex Sans"; src: url("assets/type/IBMPlexSans.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+        @font-face { font-family: "Special Elite"; src: url("assets/type/SpecialElite.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+
+        #fx-headface-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        .hw-v { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+        /* wall layer: covers the room; fades out at the bottom so the real table stays in front */
+        #hw-wallmask {
+          position: absolute; inset: 0;
+          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 1560px, transparent 1700px);
+          mask-image: linear-gradient(180deg, #000 0, #000 1560px, transparent 1700px);
+        }
+        #hw-wall { position: absolute; left: -60px; top: -60px; width: 1200px; height: 2040px; transform-origin: 600px 620px; }
+        #hw-felt { position: absolute; inset: 0; background-color: #3a3d40; background-image: url("assets/tex/felt.png"); background-size: 700px 700px; background-blend-mode: multiply; }
+        #hw-lamp { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at 50% 26%, rgba(255, 236, 214, 0.16) 0%, rgba(255, 236, 214, 0.05) 50%, rgba(255, 236, 214, 0) 80%); }
+        /* screen-space falloff on the wall only (the speaker stays lit) */
+        #hw-wallvig { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 58% at 50% 36%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.62) 100%); }
+
+        .hw-item { position: absolute; color: #151515; }
+        .hw-paper {
+          background-color: #dedbd3; background-image: url("assets/tex/paper.png"); background-size: 600px 600px;
+          background-blend-mode: multiply;
+          box-shadow: 0 22px 34px rgba(0, 0, 0, 0.58), 0 5px 10px rgba(0, 0, 0, 0.42);
+        }
+        .hw-paper.lt { background-color: #ebe9e3; }
+        .hw-in { position: absolute; left: 18px; right: 18px; }
+        .hw-mast { font-family: "Playfair Display", serif; font-weight: 900; text-align: center; white-space: nowrap; }
+        .hw-rule { height: 7px; border-top: 2px solid #151515; border-bottom: 1px solid #151515; }
+        .hw-head { font-family: "Playfair Display", serif; font-weight: 900; letter-spacing: -0.01em; white-space: nowrap; }
+        .hw-kick { font-family: "Special Elite", monospace; letter-spacing: 0.12em; white-space: nowrap; }
+        .hw-anton { font-family: "Anton", sans-serif; white-space: nowrap; letter-spacing: 0.01em; }
+        .hw-lines { background: repeating-linear-gradient(180deg, rgba(28, 28, 28, 0.55) 0, rgba(28, 28, 28, 0.55) 5px, rgba(0, 0, 0, 0) 5px, rgba(0, 0, 0, 0) 12px); }
+        .hw-tape { position: absolute; left: 50%; top: -16px; width: 110px; height: 34px; margin-left: -55px; background: rgba(206, 204, 196, 0.62); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+        .hw-pin { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; box-shadow: 5px 8px 5px rgba(0, 0, 0, 0.5); background: radial-gradient(circle at 36% 32%, #ffffff 0, #b9bcbf 34%, #4a4d50 100%); }
+        .hw-pin.red { background: radial-gradient(circle at 36% 32%, #ff9a84 0, #dd3a22 34%, #8a170b 100%); }
+
+        /* search-bar bubble (generic UI, no brand marks) */
+        .hw-search {
+          position: absolute; display: flex; align-items: center; gap: 14px; padding: 0 24px 0 20px;
+          background-color: #ebe9e3; background-image: url("assets/tex/paper.png"); background-size: 600px 600px; background-blend-mode: multiply;
+          border-radius: 40px; box-shadow: 0 18px 28px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.4), inset 0 0 0 2px rgba(21, 21, 21, 0.18);
+          font-family: "IBM Plex Sans", sans-serif; font-weight: 500; color: #1a1a1a; white-space: nowrap;
+        }
+        .hw-search svg { flex: none; }
+        .hw-caret { display: block; width: 2px; height: 30px; background: #c4301e; flex: none; }
+
+        .hw-mark { position: absolute; overflow: visible; }
+        /* bh3 matte is clean (no curtain pickup), so drop the root's default curtain clip: it would cut the raised hand.
+           For a matte that picks up the curtain, put the polygon back here. */
+        #fx-headface-root .take-fg { clip-path: none; }
+        /* ...but the second range (bh3 from 5.6 s) does pick up the curtain on the left: clip it there */
+        #hw-fg-b, #hw-sh-b { clip-path: polygon(330px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 1080px, 330px 1080px); }
+
+        /* cast shadow of the speaker on the wall: a darkened, blurred, offset matte copy */
+        #hw-shadow { position: absolute; inset: 0; filter: brightness(0) blur(22px); opacity: 0.5; transform: translate(28px, 16px); }
+      </style>
+
+      <div id="fx-headface-root" data-composition-id="fx-headface" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+
+        <!-- MEDIA: plate. One <video> per kept source range; local data-start/duration, data-media-start = source second. -->
+        <video id="hw-plate-a" class="clip hw-v hw-plate take" src="assets/take.mp4" muted playsinline data-start="0" data-duration="4.07" data-media-start="125" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        <video id="hw-plate-b" class="clip hw-v hw-plate take" src="assets/take.mp4" muted playsinline data-start="4.07" data-duration="0.83" data-media-start="130.5" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+
+        <!-- the wall that replaces the room -->
+        <div id="hw-wallmask" data-layout-allow-overflow="">
+          <div id="hw-wall" data-layout-allow-overflow="" data-layout-allow-overlap="">
+            <div id="hw-felt"></div>
+            <div id="hw-lamp"></div>
+
+            <!-- F1: big clipping behind his head; only its masthead shows above the hair -->
+            <div id="hw-f1" class="hw-item hw-paper" style="left: 430px; top: 226px; width: 480px; height: 780px; transform: rotate(-1deg);">
+              <div id="hw-f1-mast" class="hw-in hw-mast" style="top: 14px; font-size: 42px; line-height: 52px; text-align: left;"></div>
+              <div class="hw-in hw-rule" style="top: 70px;"></div>
+              <div class="hw-in hw-lines" style="top: 100px; height: 640px;"></div>
+            </div>
+
+            <!-- F2: lower-left filler behind the arm -->
+            <div id="hw-f2" class="hw-item hw-paper lt" style="left: 50px; top: 1050px; width: 330px; height: 470px; transform: rotate(3deg);">
+              <div class="hw-in hw-rule" style="top: 22px;"></div>
+              <div class="hw-in hw-lines" style="top: 50px; height: 390px;"></div>
+            </div>
+
+            <!-- F3: right filler behind the shoulder -->
+            <div id="hw-f3" class="hw-item hw-paper" style="left: 900px; top: 960px; width: 300px; height: 420px; transform: rotate(-3deg);">
+              <div class="hw-in hw-lines" style="top: 24px; height: 370px;"></div>
+            </div>
+
+            <!-- L1: headline clipping -->
+            <div id="hw-l1" class="hw-item hw-paper" style="left: 82px; top: 252px; width: 344px; height: 244px; transform: rotate(-3deg);">
+              <div id="hw-l1-mast" class="hw-in hw-mast" style="top: 12px; font-size: 22px; line-height: 28px;"></div>
+              <div class="hw-in hw-rule" style="top: 44px;"></div>
+              <div id="hw-l1-h1" class="hw-in hw-head" style="top: 60px; font-size: 38px; line-height: 46px;"></div>
+              <div id="hw-l1-h2" class="hw-in hw-head" style="top: 106px; font-size: 38px; line-height: 46px;"></div>
+              <div class="hw-in hw-lines" style="top: 166px; height: 56px;"></div>
+            </div>
+
+            <!-- L2: AI = COMPETITOR (gets the red strike) -->
+            <div id="hw-l2" class="hw-item hw-paper lt" style="left: 88px; top: 520px; width: 330px; height: 196px; transform: rotate(2deg);">
+              <div id="hw-l2-k" class="hw-in hw-kick" style="top: 16px; font-size: 22px; line-height: 28px;"></div>
+              <div id="hw-l2-a" class="hw-in hw-anton" style="top: 46px; font-size: 42px; line-height: 50px;"></div>
+              <div id="hw-l2-b" class="hw-in hw-anton" style="top: 96px; font-size: 66px; line-height: 80px;"></div>
+              <svg id="hw-strike" class="hw-mark" viewBox="0 0 330 196" style="left: 0; top: 0; width: 330px; height: 196px;">
+                <path id="hw-strike-1" d="M10 142 C 80 136, 180 128, 318 118" fill="none" stroke="#d8321d" stroke-width="8" stroke-linecap="round"/>
+                <path id="hw-strike-2" d="M14 152 C 110 146, 210 138, 312 132" fill="none" stroke="#d8321d" stroke-width="6" stroke-linecap="round"/>
+              </svg>
+            </div>
+
+            <!-- L3: search bubble -->
+            <div id="hw-s1" class="hw-search" style="left: 76px; top: 742px; height: 68px; font-size: 28px; transform: rotate(-1.5deg);">
+              <svg width="30" height="30" viewBox="0 0 30 30"><circle cx="12.5" cy="12.5" r="9" fill="none" stroke="#1a1a1a" stroke-width="3"/><path d="M19.5 19.5 L27 27" stroke="#1a1a1a" stroke-width="3.4" stroke-linecap="round"/></svg>
+              <span id="hw-s1-t"></span><span class="hw-caret"></span>
+            </div>
+
+            <!-- L4: headline clipping (partly behind the hand) -->
+            <div id="hw-l4" class="hw-item hw-paper" style="left: 80px; top: 838px; width: 330px; height: 220px; transform: rotate(-2deg);">
+              <div id="hw-l4-mast" class="hw-in hw-mast" style="top: 12px; font-size: 20px; line-height: 26px;"></div>
+              <div class="hw-in hw-rule" style="top: 42px;"></div>
+              <div id="hw-l4-h1" class="hw-in hw-head" style="top: 56px; font-size: 36px; line-height: 44px;"></div>
+              <div id="hw-l4-h2" class="hw-in hw-head" style="top: 100px; font-size: 36px; line-height: 44px;"></div>
+              <div class="hw-in hw-lines" style="top: 158px; height: 44px;"></div>
+            </div>
+
+            <!-- R1: search bubble above the head -->
+            <div id="hw-s2" class="hw-search" style="left: 700px; top: 234px; height: 62px; font-size: 26px; transform: rotate(1.5deg);">
+              <svg width="28" height="28" viewBox="0 0 30 30"><circle cx="12.5" cy="12.5" r="9" fill="none" stroke="#1a1a1a" stroke-width="3"/><path d="M19.5 19.5 L27 27" stroke="#1a1a1a" stroke-width="3.4" stroke-linecap="round"/></svg>
+              <span id="hw-s2-t"></span>
+            </div>
+
+            <!-- R2: AI = YOUR TOOL (gets the red hand circle) -->
+            <div id="hw-r2" class="hw-item hw-paper lt" style="left: 926px; top: 344px; width: 200px; height: 330px; transform: rotate(3deg);">
+              <div class="hw-tape" style="transform: rotate(-3deg);"></div>
+              <div id="hw-r2-k" class="hw-in hw-kick" style="top: 22px; font-size: 20px; line-height: 26px;"></div>
+              <div id="hw-r2-a" class="hw-in hw-anton" style="top: 54px; font-size: 44px; line-height: 52px;"></div>
+              <div id="hw-r2-b" class="hw-in hw-anton" style="top: 108px; font-size: 80px; line-height: 92px;"></div>
+              <div id="hw-r2-c" class="hw-in hw-anton" style="top: 196px; font-size: 80px; line-height: 92px;"></div>
+              <svg id="hw-circle" class="hw-mark" viewBox="0 0 200 220" preserveAspectRatio="none" style="left: -2px; top: 96px; width: 200px; height: 212px;">
+                <path id="hw-circle-p" d="M150 14 C 96 2, 26 12, 12 52 C 0 100, 4 168, 44 196 C 92 222, 168 210, 188 168 C 204 120, 200 52, 160 22 C 140 10, 116 6, 100 8" fill="none" stroke="#d8321d" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+              </svg>
+            </div>
+
+            <!-- R3: headline clipping -->
+            <div id="hw-r3" class="hw-item hw-paper" style="left: 918px; top: 702px; width: 206px; height: 250px; transform: rotate(-2.5deg);">
+              <div id="hw-r3-mast" class="hw-in hw-mast" style="top: 12px; font-size: 17px; line-height: 22px;"></div>
+              <div class="hw-in hw-rule" style="top: 38px;"></div>
+              <div id="hw-r3-h1" class="hw-in hw-head" style="top: 52px; font-size: 36px; line-height: 42px;"></div>
+              <div id="hw-r3-h2" class="hw-in hw-head" style="top: 94px; font-size: 36px; line-height: 42px;"></div>
+              <div id="hw-r3-h3" class="hw-in hw-head" style="top: 136px; font-size: 36px; line-height: 42px;"></div>
+              <div class="hw-in hw-lines" style="top: 192px; height: 40px;"></div>
+            </div>
+
+            <div class="hw-pin" style="left: 100px; top: 266px;"></div>
+            <div class="hw-pin red" style="left: 252px; top: 532px;"></div>
+            <div class="hw-pin" style="left: 102px; top: 854px;"></div>
+            <div class="hw-pin" style="left: 938px; top: 718px;"></div>
+          </div>
+          <div id="hw-wallvig"></div>
+        </div>
+
+        <!-- MEDIA: cast shadow (same matte clips as below, darkened + blurred by #hw-shadow) -->
+        <div id="hw-shadow" data-layout-allow-overflow="">
+          <video id="hw-sh-a" class="clip hw-v" src="assets/bh3-fg.webm" muted playsinline data-start="0" data-duration="4.07" data-media-start="0.1333" data-track-index="2" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+          <video id="hw-sh-b" class="clip hw-v" src="assets/bh3-fg.webm" muted playsinline data-start="4.07" data-duration="0.83" data-media-start="5.6333" data-track-index="3" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+
+        <!-- MEDIA: person matte (VP9 alpha), same timing as the plate clips -->
+        <video id="hw-fg-a" class="clip hw-v take-fg" src="assets/bh3-fg.webm" muted playsinline data-start="0" data-duration="4.07" data-media-start="0.1" data-track-index="4" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        <video id="hw-fg-b" class="clip hw-v take-fg" src="assets/bh3-fg.webm" muted playsinline data-start="4.07" data-duration="0.83" data-media-start="5.6" data-track-index="5" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+      </div>
+
+      <script>
+        (function () {
+          // =====================================================================
+          // CONFIG: everything a reuse needs to change. Times are LOCAL (0 = slot start).
+          // Item positions live in the inline styles above (screen px before drift).
+          // =====================================================================
+          var CONFIG = {
+            duration: 4.9,                    // slot length (s); host data-duration
+            // --- copy (fictional mastheads only, never real publications) ---
+            f1Mast: "THE WIRE",               // big clipping behind the head (masthead peeks above the hair)
+            l1Mast: "THE WORLD LEDGER",
+            l1Head: ["Is AI coming", "for your job?"],   // one string per line, never wraps
+            l2Kick: "OPINION ·",
+            l2A: "AI =",
+            l2B: "COMPETITOR",                // gets the red strike
+            l4Mast: "MORNING SIGNAL",
+            l4Head: ["AI vs humans:", "who wins?"],
+            r2Kick: "GUIDE ·",
+            r2A: "AI =",
+            r2B: ["YOUR", "TOOL"],            // gets the red hand circle
+            r3Mast: "THE CIRCUIT POST",
+            r3Head: ["Will AI", "replace", "you?"],
+            search1: "will ai take my job",
+            search2: "jobs safe from ai",
+            // --- cues (local s) ---
+            strikeAt: [1.18, 1.44],           // two strike strokes ("competition" 1.18 ... "nahi" 1.64)
+            strikeDur: 0.22,
+            strikeDim: 0.55,                  // struck clipping copy fades to this opacity
+            circleAt: 3.7,                    // red circle draws on "karwana"
+            circleDur: 0.36,
+            // --- wall drift (slow, filmic) ---
+            driftScale: [1.035, 1.0],
+            driftX: [10, -12],
+            driftY: [6, -4],
+            // --- shadow ---
+            shadowOpacity: 0.5
+          };
+
+          function txt(id, s) { document.getElementById(id).textContent = s; }
+          txt("hw-f1-mast", CONFIG.f1Mast);
+          txt("hw-l1-mast", CONFIG.l1Mast); txt("hw-l1-h1", CONFIG.l1Head[0]); txt("hw-l1-h2", CONFIG.l1Head[1]);
+          txt("hw-l2-k", CONFIG.l2Kick); txt("hw-l2-a", CONFIG.l2A); txt("hw-l2-b", CONFIG.l2B);
+          txt("hw-l4-mast", CONFIG.l4Mast); txt("hw-l4-h1", CONFIG.l4Head[0]); txt("hw-l4-h2", CONFIG.l4Head[1]);
+          txt("hw-r2-k", CONFIG.r2Kick); txt("hw-r2-a", CONFIG.r2A); txt("hw-r2-b", CONFIG.r2B[0]); txt("hw-r2-c", CONFIG.r2B[1]);
+          txt("hw-r3-mast", CONFIG.r3Mast); txt("hw-r3-h1", CONFIG.r3Head[0]); txt("hw-r3-h2", CONFIG.r3Head[1]); txt("hw-r3-h3", CONFIG.r3Head[2]);
+          txt("hw-s1-t", CONFIG.search1); txt("hw-s2-t", CONFIG.search2);
+          document.getElementById("hw-shadow").style.opacity = String(CONFIG.shadowOpacity);
+
+          var tl = gsap.timeline({ paused: true });
+
+          // wall drifts slowly the whole slot
+          tl.fromTo("#hw-wall",
+            { scale: CONFIG.driftScale[0], x: CONFIG.driftX[0], y: CONFIG.driftY[0] },
+            { scale: CONFIG.driftScale[1], x: CONFIG.driftX[1], y: CONFIG.driftY[1], duration: CONFIG.duration, ease: "sine.inOut", immediateRender: true }, 0);
+
+          function drawOn(id, at, dur) {
+            var p = document.getElementById(id), l = p.getTotalLength();
+            p.style.strokeDasharray = l.toFixed(1) + " " + (l + 10).toFixed(1);
+            tl.fromTo(p, { strokeDashoffset: l + 6 }, { strokeDashoffset: 0, duration: dur, ease: "power2.out", immediateRender: true }, at);
+          }
+          // red strike on COMPETITOR (two quick marker strokes), then the copy recedes
+          drawOn("hw-strike-1", CONFIG.strikeAt[0], CONFIG.strikeDur);
+          drawOn("hw-strike-2", CONFIG.strikeAt[1], CONFIG.strikeDur);
+          tl.fromTo(["#hw-l2-a", "#hw-l2-b", "#hw-l2-k"], { opacity: 1 }, { opacity: CONFIG.strikeDim, duration: 0.4, ease: "sine.inOut", immediateRender: true }, CONFIG.strikeAt[1] + 0.1);
+          // red hand circle round YOUR TOOL
+          drawOn("hw-circle-p", CONFIG.circleAt, CONFIG.circleDur);
+
+          window.__timelines["fx-headface"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

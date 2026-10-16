@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: PULL-BACK REVEAL (full-screen b-roll, no footage, hides the face completely)
+        Starts macro-tight on one detail (a red "AI" rubber stamp on paper fibres), holds, then one long
+        decelerating pull-back reveals the memo it is stamped on, then the whole evidence board.
+        Reuse: copy this file, change the slot id/prefix if needed, edit CONFIG (copy + cue times).
+        The camera is a world-space rig like board.html: #pb-pan (x/y) inside #pb-zoom (scale/rotation).
+      -->
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Special Elite"; src: url("assets/type/SpecialElite.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+        @font-face { font-family: "Tillana"; src: url("assets/fonts/Tillana-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-pullback-root { position: absolute; inset: 0; overflow: hidden; background: #141617; }
+        #pb-view { position: absolute; left: 540px; top: 960px; width: 0; height: 0; }
+        #pb-zoom { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+        #pb-pan { position: absolute; left: 0; top: 0; width: 2400px; height: 3600px; }
+
+        /* felt board + lamp pool (world space) */
+        #pb-felt {
+          position: absolute; left: -1600px; top: -1600px; width: 5600px; height: 6800px;
+          background-color: #3a3d40; background-image: url("assets/tex/felt.png"); background-size: 700px 700px;
+          background-blend-mode: multiply;
+        }
+        #pb-lamp {
+          position: absolute; left: -900px; top: -700px; width: 4200px; height: 5000px;
+          background: radial-gradient(ellipse 40% 34% at 47% 42%, rgba(255, 236, 214, 0.17) 0%, rgba(255, 236, 214, 0.05) 45%, rgba(255, 236, 214, 0) 75%);
+        }
+
+        .pb-item { position: absolute; }
+        .pb-paper {
+          background-color: #dedbd3; background-image: url("assets/tex/paper.png"); background-size: 600px 600px;
+          background-blend-mode: multiply;
+          box-shadow: 0 34px 60px rgba(0, 0, 0, 0.6), 0 8px 14px rgba(0, 0, 0, 0.45);
+        }
+        .pb-a { position: absolute; left: 56px; right: 56px; }
+
+        /* ---------- case strip ---------- */
+        #pb-case { left: 640px; top: 520px; width: 1120px; height: 96px; transform: rotate(-1.2deg); font-family: "Special Elite", monospace; font-size: 40px; line-height: 96px; padding-left: 92px; color: #1c1c1c; letter-spacing: 0.05em; white-space: nowrap; }
+
+        /* ---------- newspaper clipping (fictional masthead) ---------- */
+        #pb-clip { left: 260px; top: 660px; width: 900px; height: 900px; transform: rotate(-3deg); color: #151515; }
+        #pb-mast { top: 40px; height: 72px; font-family: "Playfair Display", serif; font-weight: 900; font-size: 58px; line-height: 72px; text-align: center; white-space: nowrap; }
+        #pb-rule2 { top: 120px; height: 10px; border-top: 3px solid #151515; border-bottom: 1.5px solid #151515; }
+        #pb-dateline { top: 138px; height: 24px; display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 16px; line-height: 24px; letter-spacing: 0.16em; }
+        #pb-rule1 { top: 172px; height: 0; border-top: 1.5px solid #151515; }
+        #pb-head { top: 188px; height: 110px; font-family: "Playfair Display", serif; font-weight: 900; font-size: 74px; line-height: 110px; text-align: center; letter-spacing: -0.01em; white-space: nowrap; }
+        #pb-photo { top: 316px; height: 330px; overflow: hidden; background: linear-gradient(180deg, #6a6966 0%, #3a3a38 60%, #272726 100%); }
+        #pb-photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #pb-halftone { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(12, 12, 12, 0.6) 0, rgba(12, 12, 12, 0.6) 1.7px, rgba(0, 0, 0, 0) 2.3px) 0 0 / 7px 7px; mix-blend-mode: multiply; }
+        #pb-body { top: 672px; height: 190px; display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: 28px; }
+        .pb-col { position: relative; background: repeating-linear-gradient(180deg, rgba(28, 28, 28, 0.62) 0, rgba(28, 28, 28, 0.62) 7px, rgba(0, 0, 0, 0) 7px, rgba(0, 0, 0, 0) 16px); }
+        .pb-gap { position: absolute; right: 0; height: 9px; background: #dad7cf; }
+
+        /* ---------- polaroid ---------- */
+        #pb-pol { left: 1330px; top: 720px; width: 540px; height: 664px; padding: 28px 28px 0; transform: rotate(4deg); background-color: #ecebe6; background-image: url("assets/tex/paper.png"); background-size: 600px 600px; background-blend-mode: multiply; box-shadow: 0 34px 60px rgba(0, 0, 0, 0.6), 0 8px 14px rgba(0, 0, 0, 0.45); }
+        #pb-pol-img { position: relative; width: 484px; height: 484px; overflow: hidden; }
+        #pb-pol-img svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #pb-pol-label { font-family: "Kalam", cursive; font-weight: 700; font-size: 40px; line-height: 44px; color: #222; padding-top: 30px; white-space: nowrap; }
+        .pb-tape { position: absolute; left: 50%; top: -30px; width: 190px; height: 58px; margin-left: -95px; background: rgba(206, 204, 196, 0.62); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+
+        /* ---------- the hero memo ---------- */
+        #pb-memo {
+          left: 600px; top: 1420px; width: 1200px; height: 1180px; transform: rotate(-1.2deg); color: #151515;
+          background-color: #ebe9e3;
+        }
+        #pb-memo-hd { top: 60px; height: 48px; display: flex; justify-content: space-between; font-family: "Special Elite", monospace; font-size: 40px; line-height: 48px; letter-spacing: 0.12em; white-space: nowrap; }
+        #pb-memo-r1 { top: 124px; height: 10px; border-top: 3px solid #151515; border-bottom: 1.5px solid #151515; }
+        .pb-memo-ln { height: 52px; font-family: "Special Elite", monospace; font-size: 36px; line-height: 52px; letter-spacing: 0.05em; white-space: nowrap; }
+        #pb-memo-to { top: 162px; }
+        #pb-memo-re { top: 214px; }
+        #pb-memo-r2 { top: 292px; height: 0; border-top: 1.5px solid #151515; }
+        .pb-big { height: 176px; font-family: "Anton", sans-serif; font-size: 168px; line-height: 176px; letter-spacing: 0.01em; white-space: nowrap; }
+        #pb-big1 { top: 320px; }
+        #pb-big2 { top: 500px; }
+        #pb-uline { position: absolute; left: 48px; top: 676px; width: 960px; height: 40px; overflow: visible; }
+        #pb-memo-body { top: 760px; height: 240px; }
+        .pb-bar { position: absolute; left: 0; height: 9px; background: rgba(28, 28, 28, 0.6); }
+        #pb-note { position: absolute; left: 560px; top: 1036px; font-family: "Tillana", cursive; font-weight: 700; font-size: 72px; line-height: 96px; color: #c4301e; white-space: nowrap; transform: rotate(-4deg); }
+
+        /* rubber stamp: rotation on the wrapper; ink mask gives the fibre texture in the macro shot */
+        #pb-stamp-rot { position: absolute; left: 640px; top: 760px; transform: rotate(-9deg); }
+        #pb-stamp {
+          padding: 14px 40px 8px; border: 7px solid #c4301e; box-shadow: inset 0 0 0 5px #ebe9e3, inset 0 0 0 9px #c4301e;
+          color: #c4301e; text-align: center; mix-blend-mode: multiply; opacity: 0.93;
+          -webkit-mask-image: url("assets/tex/ink-mask.png"); mask-image: url("assets/tex/ink-mask.png");
+          -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+        }
+        #pb-stamp .s1 { font-family: "Special Elite", monospace; font-size: 30px; letter-spacing: 0.34em; line-height: 40px; white-space: nowrap; }
+        #pb-stamp .s2 { font-family: "Special Elite", monospace; font-size: 170px; letter-spacing: 0.04em; line-height: 168px; white-space: nowrap; }
+
+        /* ---------- index card ---------- */
+        #pb-card {
+          left: 220px; top: 2990px; width: 860px; height: 520px; transform: rotate(2.5deg); color: #151515;
+          background-color: #ebe9e3;
+          background-image: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 60px, rgba(70, 80, 90, 0.2) 60px, rgba(70, 80, 90, 0.2) 62px), url("assets/tex/paper.png");
+          background-position: 0 120px, 0 0; background-size: 100% 100%, 600px 600px; background-repeat: no-repeat, repeat;
+          background-blend-mode: normal, multiply;
+        }
+        #pb-card-margin { position: absolute; left: 0; right: 0; top: 116px; height: 3px; background: rgba(196, 48, 30, 0.8); }
+        #pb-card-t { position: absolute; left: 56px; top: 40px; font-family: "Special Elite", monospace; font-size: 44px; line-height: 60px; letter-spacing: 0.06em; white-space: nowrap; }
+        #pb-card-num { position: absolute; left: 0; right: 0; top: 140px; height: 250px; font-family: "Anton", sans-serif; font-size: 220px; line-height: 250px; text-align: center; white-space: nowrap; }
+        #pb-card-foot { position: absolute; left: 56px; bottom: 26px; font-family: "Kalam", cursive; font-weight: 700; font-size: 46px; line-height: 60px; white-space: nowrap; }
+
+        /* ---------- chart printout ---------- */
+        #pb-chart { left: 1320px; top: 2900px; width: 700px; height: 520px; transform: rotate(-3deg); color: #1c1c1c; }
+        #pb-chart-t { position: absolute; left: 44px; top: 54px; font-family: "IBM Plex Mono", monospace; font-size: 22px; letter-spacing: 0.18em; white-space: nowrap; }
+        #pb-chart-axis { position: absolute; left: 44px; right: 44px; top: 116px; bottom: 60px; border-left: 2px solid #1c1c1c; border-bottom: 2px solid #1c1c1c; display: flex; align-items: flex-end; justify-content: space-around; padding: 0 18px; }
+        .pb-cbar { width: 56px; background: #4a4a48; }
+        .pb-cbar.hot { background: #c4301e; }
+        #pb-chart-x { position: absolute; left: 44px; right: 44px; bottom: 22px; display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 16px; letter-spacing: 0.1em; }
+
+        /* ---------- strings + pins ---------- */
+        #pb-threads { position: absolute; left: 0; top: 0; width: 2400px; height: 3600px; overflow: visible; }
+        .pb-pin { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; box-shadow: 8px 12px 7px rgba(0, 0, 0, 0.5); }
+        .pb-pin.red { background: radial-gradient(circle at 36% 32%, #ff9a84 0, #dd3a22 34%, #8a170b 100%); }
+        .pb-pin.steel { background: radial-gradient(circle at 36% 32%, #ffffff 0, #b9bcbf 34%, #4a4d50 100%); }
+
+        /* screen-space lens: normal vignette + a tighter "macro" vignette that opens with the pull-back */
+        #pb-vig { position: absolute; inset: 0; background: radial-gradient(ellipse 78% 62% at 50% 46%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.72) 100%); }
+        #pb-macro { position: absolute; inset: 0; background: radial-gradient(ellipse 62% 44% at 50% 50%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.62) 100%); }
+      </style>
+
+      <div id="fx-pullback-root" data-composition-id="fx-pullback" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="pb-view">
+          <div id="pb-zoom">
+            <div id="pb-pan">
+              <div id="pb-felt"></div>
+              <div id="pb-lamp"></div>
+
+              <div id="pb-case" class="pb-item pb-paper"></div>
+
+              <div id="pb-pol" class="pb-item">
+                <div class="pb-tape" style="transform: rotate(-4deg);"></div>
+                <div id="pb-pol-img">
+                  <svg viewBox="0 0 484 484" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="pb-pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d666c"/><stop offset="1" stop-color="#1b1f22"/></linearGradient>
+                      <radialGradient id="pb-pl" cx="0.72" cy="0.3" r="0.5"><stop offset="0" stop-color="#d8dcdc" stop-opacity="0.55"/><stop offset="1" stop-color="#d8dcdc" stop-opacity="0"/></radialGradient>
+                    </defs>
+                    <rect width="484" height="484" fill="url(#pb-pg)"/>
+                    <rect width="484" height="484" fill="url(#pb-pl)"/>
+                    <rect x="0" y="356" width="484" height="128" fill="#121517"/>
+                    <rect x="60" y="250" width="110" height="106" fill="#0d0f10"/>
+                    <rect x="200" y="250" width="110" height="106" fill="#0d0f10"/>
+                    <rect x="340" y="250" width="110" height="106" fill="#0d0f10"/>
+                    <circle cx="115" cy="214" r="26" fill="#0b0c0d"/>
+                    <circle cx="255" cy="214" r="26" fill="#0b0c0d"/>
+                    <circle cx="395" cy="214" r="26" fill="#0b0c0d"/>
+                    <rect x="236" y="96" width="38" height="96" fill="#0b0c0d" opacity="0.6"/>
+                  </svg>
+                </div>
+                <div id="pb-pol-label"></div>
+              </div>
+
+              <div id="pb-clip" class="pb-item pb-paper">
+                <div id="pb-mast" class="pb-a"></div>
+                <div id="pb-rule2" class="pb-a"></div>
+                <div id="pb-dateline" class="pb-a"><span>WORK</span><span>LATE EDITION</span><span>2026</span></div>
+                <div id="pb-rule1" class="pb-a"></div>
+                <div id="pb-head" class="pb-a"></div>
+                <div id="pb-photo" class="pb-a">
+                  <svg viewBox="0 0 788 330" preserveAspectRatio="none">
+                    <defs>
+                      <radialGradient id="pb-ph-l" cx="0.3" cy="0.25" r="0.6"><stop offset="0" stop-color="#e9e6df" stop-opacity="0.75"/><stop offset="1" stop-color="#e9e6df" stop-opacity="0"/></radialGradient>
+                    </defs>
+                    <rect width="788" height="330" fill="url(#pb-ph-l)"/>
+                    <rect x="90" y="190" width="600" height="18" fill="#141414" opacity="0.9"/>
+                    <rect x="150" y="120" width="150" height="74" rx="6" fill="#141414" opacity="0.88"/>
+                    <rect x="470" y="120" width="150" height="74" rx="6" fill="#141414" opacity="0.88"/>
+                    <path d="M300 330 L330 210 L360 210 L390 330 Z" fill="#101010"/>
+                    <path d="M560 330 L560 240 C 560 220 600 220 610 236 L640 330 Z" fill="#101010"/>
+                  </svg>
+                  <div id="pb-halftone"></div>
+                </div>
+                <div id="pb-body" class="pb-a">
+                  <div class="pb-col"><div class="pb-gap" style="top: 48px; width: 46%;"></div><div class="pb-gap" style="top: 128px; width: 30%;"></div></div>
+                  <div class="pb-col"><div class="pb-gap" style="top: 32px; width: 58%;"></div><div class="pb-gap" style="top: 160px; width: 40%;"></div></div>
+                  <div class="pb-col"><div class="pb-gap" style="top: 96px; width: 64%;"></div></div>
+                </div>
+              </div>
+
+              <div id="pb-card" class="pb-item pb-paper">
+                <div id="pb-card-margin"></div>
+                <div id="pb-card-t"></div>
+                <div id="pb-card-num"></div>
+                <div id="pb-card-foot"></div>
+              </div>
+
+              <div id="pb-chart" class="pb-item pb-paper">
+                <div id="pb-chart-t"></div>
+                <div id="pb-chart-axis">
+                  <div class="pb-cbar" style="height: 14%;"></div>
+                  <div class="pb-cbar" style="height: 22%;"></div>
+                  <div class="pb-cbar" style="height: 35%;"></div>
+                  <div class="pb-cbar" style="height: 54%;"></div>
+                  <div class="pb-cbar" style="height: 73%;"></div>
+                  <div class="pb-cbar hot" style="height: 96%;"></div>
+                </div>
+                <div id="pb-chart-x"><span>2024</span><span>2026</span><span>2028</span><span>2029</span></div>
+              </div>
+
+              <!-- the hero memo: macro shot starts on its stamp -->
+              <div id="pb-memo" class="pb-item pb-paper">
+                <div id="pb-memo-hd" class="pb-a"><span id="pb-memo-kind"></span><span id="pb-memo-no"></span></div>
+                <div id="pb-memo-r1" class="pb-a"></div>
+                <div id="pb-memo-to" class="pb-a pb-memo-ln"></div>
+                <div id="pb-memo-re" class="pb-a pb-memo-ln"></div>
+                <div id="pb-memo-r2" class="pb-a"></div>
+                <div id="pb-big1" class="pb-a pb-big"></div>
+                <div id="pb-big2" class="pb-a pb-big"></div>
+                <svg id="pb-uline" viewBox="0 0 960 40" preserveAspectRatio="none">
+                  <path id="pb-uline-p" d="M8 24 C 180 14, 420 12, 640 16 C 760 18, 880 22, 952 14" fill="none" stroke="#d8321d" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div id="pb-memo-body" class="pb-a">
+                  <div class="pb-bar" style="top: 0; width: 92%;"></div>
+                  <div class="pb-bar" style="top: 34px; width: 86%;"></div>
+                  <div class="pb-bar" style="top: 68px; width: 95%;"></div>
+                  <div class="pb-bar" style="top: 102px; width: 62%;"></div>
+                  <div class="pb-bar" style="top: 170px; width: 88%;"></div>
+                  <div class="pb-bar" style="top: 204px; width: 54%;"></div>
+                </div>
+                <div id="pb-stamp-rot" data-layout-allow-occlusion="">
+                  <div id="pb-stamp"><div class="s1" id="pb-stamp-s1"></div><div class="s2" id="pb-stamp-s2"></div></div>
+                </div>
+                <div id="pb-note"></div>
+              </div>
+
+              <svg id="pb-threads" viewBox="0 0 2400 3600">
+                <path id="pb-th1" d="" fill="none" stroke="rgba(232, 228, 220, 0.5)" stroke-width="3"/>
+                <path id="pb-th2" d="" fill="none" stroke="rgba(232, 228, 220, 0.42)" stroke-width="3"/>
+                <path id="pb-string-sh" d="" fill="none" stroke="rgba(0, 0, 0, 0.45)" stroke-width="6" stroke-linecap="round" transform="translate(7 11)"/>
+                <path id="pb-string" d="" fill="none" stroke="#d8321d" stroke-width="6" stroke-linecap="round"/>
+              </svg>
+
+              <div id="pb-pin-case" class="pb-pin steel"></div>
+              <div id="pb-pin-clip" class="pb-pin steel"></div>
+              <div id="pb-pin-pol" class="pb-pin steel"></div>
+              <div id="pb-pin-chart" class="pb-pin steel"></div>
+              <div id="pb-pin-memo" class="pb-pin red"></div>
+              <div id="pb-pin-card" class="pb-pin red"></div>
+            </div>
+          </div>
+        </div>
+        <div id="pb-macro" data-layout-allow-occlusion=""></div>
+        <div id="pb-vig" data-layout-allow-occlusion=""></div>
+      </div>
+
+      <script>
+        (function () {
+          // =====================================================================
+          // CONFIG: everything a reuse needs to change. Times are LOCAL (0 = slot start).
+          // =====================================================================
+          var CONFIG = {
+            duration: 3.88,                 // slot length (s); must match the host data-duration
+            // --- copy ---
+            stampTop: "CLASSIFIED",         // small line on the rubber stamp
+            stampWord: "AI",                // the macro detail: big stamped word (1-3 chars read best)
+            memoKind: "INTERNAL MEMO",      // memo header left
+            memoNo: "NO. 05",               // memo header right
+            memoTo: "TO:  EVERYONE",        // typed line 1
+            memoRe: "RE:  THE NEXT 3 YEARS",// typed line 2
+            bigLine1: "AI WILL DO",         // giant Anton line 1 (keep <= ~11 chars, no wrapping)
+            bigLine2: "ALL THE WORK",       // giant Anton line 2 (gets the red underline)
+            note: "3 saal mein?",           // red Tillana reaction note on the memo
+            caseStrip: "CASE FILE 05 — WHO DOES THE WORK?",
+            mast: "THE WORLD LEDGER",       // fictional masthead only (no real publications)
+            headline: "MACHINES AT WORK",
+            polLabel: "exhibit 05 · office",
+            cardTitle: "TIMELINE —",
+            cardNum: "3 YEARS",
+            cardFoot: "saara kaam?",
+            chartTitle: "TASKS AUTOMATED %",
+            // --- camera (world px of the 2400x3600 board; scale = zoom) ---
+            macroScale: [3.35, 3.1],        // macro hold: start -> end scale (slow creep back)
+            macroRot: [2.4, 2.0],           // macro hold rotation (deg)
+            wideScale: 0.56,                // final wide scale (whole board in frame)
+            wideRot: -0.6,                  // final rotation (deg)
+            wideCenter: { x: 1130, y: 1880 }, // world point at frame centre in the wide shot
+            settleScale: 0.575,             // slow drift after landing
+            // --- cues (local s) ---
+            rackFocus: [0, 0.55],           // blur 7px -> 0 (rack into the macro detail)
+            pullAt: 1.2,                    // pull-back starts (just before the spoken "AI" at 1.40)
+            pullDur: 2.2,                   // pull-back length; power3.out deceleration
+            pullEase: "power3.out",
+            underlineAt: 2.25,              // red underline under bigLine2 ("kaam" 1.98 / "karegi" 2.20)
+            noteAt: 2.45                    // Tillana note writes on
+          };
+
+          function txt(id, s) { document.getElementById(id).textContent = s; }
+          txt("pb-stamp-s1", CONFIG.stampTop); txt("pb-stamp-s2", CONFIG.stampWord);
+          txt("pb-memo-kind", CONFIG.memoKind); txt("pb-memo-no", CONFIG.memoNo);
+          txt("pb-memo-to", CONFIG.memoTo); txt("pb-memo-re", CONFIG.memoRe);
+          txt("pb-big1", CONFIG.bigLine1); txt("pb-big2", CONFIG.bigLine2);
+          txt("pb-note", CONFIG.note); txt("pb-case", CONFIG.caseStrip);
+          txt("pb-mast", CONFIG.mast); txt("pb-head", CONFIG.headline);
+          txt("pb-pol-label", CONFIG.polLabel); txt("pb-card-t", CONFIG.cardTitle);
+          txt("pb-card-num", CONFIG.cardNum); txt("pb-card-foot", CONFIG.cardFoot);
+          txt("pb-chart-t", CONFIG.chartTitle);
+
+          // Item boxes (world px) mirroring the CSS; rotation about each box centre.
+          var BOX = {
+            memo: { left: 600, top: 1420, w: 1200, h: 1180, deg: -1.2 },
+            clip: { left: 260, top: 660, w: 900, h: 900, deg: -3 },
+            pol: { left: 1330, top: 720, w: 540, h: 664, deg: 4 },
+            kase: { left: 640, top: 520, w: 1120, h: 96, deg: -1.2 },
+            card: { left: 220, top: 2990, w: 860, h: 520, deg: 2.5 },
+            chart: { left: 1320, top: 2900, w: 700, h: 520, deg: -3 }
+          };
+          function at(b, lx, ly) {
+            var a = b.deg * Math.PI / 180, dx = lx - b.w / 2, dy = ly - b.h / 2;
+            return { x: b.left + b.w / 2 + dx * Math.cos(a) - dy * Math.sin(a), y: b.top + b.h / 2 + dx * Math.sin(a) + dy * Math.cos(a) };
+          }
+          function place(id, p) { var el = document.getElementById(id); el.style.left = p.x.toFixed(1) + "px"; el.style.top = p.y.toFixed(1) + "px"; }
+
+          var P_MEMO = at(BOX.memo, 60, 1130), P_CARD = at(BOX.card, 430, 30);
+          var P_CASE = at(BOX.kase, 46, 48), P_CLIP = at(BOX.clip, 450, 22);
+          var P_POL = at(BOX.pol, 270, 22), P_CHART = at(BOX.chart, 350, 26);
+          place("pb-pin-memo", P_MEMO); place("pb-pin-card", P_CARD); place("pb-pin-case", P_CASE);
+          place("pb-pin-clip", P_CLIP); place("pb-pin-pol", P_POL); place("pb-pin-chart", P_CHART);
+
+          function sag(a, b, s) {
+            var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + s;
+            return "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + " Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + b.x.toFixed(1) + " " + b.y.toFixed(1);
+          }
+          document.getElementById("pb-th1").setAttribute("d", sag(P_CLIP, P_POL, 110));
+          document.getElementById("pb-th2").setAttribute("d", sag(P_CASE, P_POL, 70));
+          // red string: from the memo's bottom-left corner pin, sagging down to the timeline card
+          // (kept off the memo face so the macro shot on the stamp stays clean)
+          var dStr = sag(P_MEMO, P_CARD, 160);
+          document.getElementById("pb-string").setAttribute("d", dStr);
+          document.getElementById("pb-string-sh").setAttribute("d", dStr);
+
+          // macro target = centre of the stamped word (memo-local coords of #pb-stamp-rot + its size)
+          // (fixed size estimate: layout is not reliable before fonts load; ~320x244 for "AI")
+          var sw = 320, sh = 244;
+          var START = at(BOX.memo, 640 + sw / 2, 760 + sh * 0.62);
+          var END = CONFIG.wideCenter;
+
+          // ---------------------------------------------------------------------
+          // Camera: one seek-safe driver. cam.t is local time; applyCam() derives the whole
+          // camera from it (macro creep -> log-space pull-back -> slow settle drift).
+          // ---------------------------------------------------------------------
+          var pullEase = gsap.parseEase(CONFIG.pullEase);
+          var macroEase = gsap.parseEase("sine.inOut");
+          var settleEase = gsap.parseEase("sine.out");
+          var lnA = Math.log(CONFIG.macroScale[1]), lnB = Math.log(CONFIG.wideScale);
+          function lerp(a, b, k) { return a + (b - a) * k; }
+          var cam = { t: 0 };
+          function applyCam() {
+            var t = cam.t, s, r, c;
+            var pEnd = CONFIG.pullAt + CONFIG.pullDur;
+            if (t < CONFIG.pullAt) {
+              var k = macroEase(t / CONFIG.pullAt);
+              s = lerp(CONFIG.macroScale[0], CONFIG.macroScale[1], k);
+              r = lerp(CONFIG.macroRot[0], CONFIG.macroRot[1], k);
+              c = START;
+            } else if (t < pEnd) {
+              var p = pullEase((t - CONFIG.pullAt) / CONFIG.pullDur);
+              s = Math.exp(lerp(lnA, lnB, p));      // log-space zoom reads as an even pull
+              r = lerp(CONFIG.macroRot[1], CONFIG.wideRot, p);
+              c = { x: lerp(START.x, END.x, p), y: lerp(START.y, END.y, p) };
+            } else {
+              var q = settleEase(Math.min(1, (t - pEnd) / Math.max(0.01, CONFIG.duration - pEnd)));
+              s = lerp(CONFIG.wideScale, CONFIG.settleScale, q);
+              r = CONFIG.wideRot; c = END;
+            }
+            gsap.set("#pb-zoom", { scale: s, rotation: r });
+            gsap.set("#pb-pan", { x: -c.x, y: -c.y });
+          }
+
+          var tl = gsap.timeline({ paused: true });
+          tl.fromTo(cam, { t: 0 }, { t: CONFIG.duration, duration: CONFIG.duration, ease: "none", immediateRender: true, onUpdate: applyCam }, 0);
+          applyCam();
+
+          // rack focus into the macro detail
+          tl.fromTo("#pb-view", { filter: "blur(7px)" }, { filter: "blur(0px)", duration: CONFIG.rackFocus[1] - CONFIG.rackFocus[0], ease: "power2.out", immediateRender: true }, CONFIG.rackFocus[0]);
+          // the tight macro vignette opens as the lens pulls back
+          tl.fromTo("#pb-macro", { opacity: 1 }, { opacity: 0, duration: 1.1, ease: "sine.inOut", immediateRender: true }, CONFIG.pullAt);
+
+          // red underline under line 2 (stroke draw)
+          var ul = document.getElementById("pb-uline-p"), ulL = ul.getTotalLength();
+          ul.style.strokeDasharray = ulL.toFixed(1) + " " + (ulL + 10).toFixed(1);
+          tl.fromTo(ul, { strokeDashoffset: ulL + 6 }, { strokeDashoffset: 0, duration: 0.34, ease: "power2.out", immediateRender: true }, CONFIG.underlineAt);
+
+          // hand note written on left to right
+          tl.fromTo("#pb-note", { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.45, ease: "sine.inOut", immediateRender: true }, CONFIG.noteAt);
+
+          window.__timelines["fx-pullback"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

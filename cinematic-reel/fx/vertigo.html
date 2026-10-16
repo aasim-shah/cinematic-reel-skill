@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: VERTIGO (dolly zoom) — cinematic-reel effects library
+        The speaker cut-out holds its size while the room behind changes field of view and
+        "stretches away". At the peak the room darkens, picks up a radial zoom-blur, and a
+        giant red Anton word lands behind the head with a red rule and a typed mono tag.
+
+        Ghost-free method: the room is a STILL CLEAN PLATE (the speaker painted out, built by
+        assets/fx/vertigo/make_clean_plate.py), so the room can scale freely with no second
+        copy of the speaker peeking around the cut-out. The room is a tripod shot, so a still
+        reads as live behind the moving matte.
+
+        Layer order inside #vg-cam (entry camera):
+          #vg-room (clean plate + 2 zoom-blur ghosts) -> #vg-dark -> #vg-word/#vg-rule/#vg-tag
+          -> #vg-subj (matte video, shifted down to free the top third for the word)
+        Reuse: edit CONFIG + the MEDIA attributes (matte video, clean-plate images).
+      -->
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        #fx-vertigo-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        #vg-cam, #vg-room, #vg-subj, .vg-ghost { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+        .vg-plate { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+        .vg-ghost { opacity: 0; background: url("assets/fx/vertigo/clean-plate.jpg") center / cover no-repeat; filter: saturate(0.92); }
+        /* bh1-fg is clean on the left (no curtain pickup). The root CSS puts the curtain polygon on
+           every .take-fg; override it here, or it slices the shoulder once the cut-out is shifted down. */
+        #vg-fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; clip-path: none; }
+        #vg-dark { position: absolute; inset: 0; opacity: 0;
+          background: radial-gradient(ellipse 62% 44% at 55% 40%, rgba(5, 5, 5, 0.38) 0%, rgba(5, 5, 5, 0.7) 55%, rgba(5, 5, 5, 0.9) 100%); }
+        #vg-word { position: absolute; left: 0; width: 1080px; text-align: center; font-family: "Anton", sans-serif; font-weight: 400; line-height: 1; white-space: nowrap; color: #e0301e; opacity: 0;
+          text-shadow: 0 0 46px rgba(224, 48, 30, 0.38), 0 6px 30px rgba(0, 0, 0, 0.35); }
+        #vg-rule { position: absolute; left: 0; width: 1080px; height: 7px; background: #e0301e; box-shadow: 0 0 22px rgba(224, 48, 30, 0.55); }
+        #vg-tag { position: absolute; display: flex; align-items: center; gap: 16px; height: 40px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 28px; letter-spacing: 0.22em; line-height: 40px; color: #efe9df; white-space: nowrap; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+        .vg-sq { display: block; width: 18px; height: 18px; background: #e0301e; flex: none; }
+      </style>
+      <div id="fx-vertigo-root" data-composition-id="fx-vertigo" data-width="1080" data-height="1920">
+        <div id="vg-cam" data-layout-allow-overflow="">
+          <div id="vg-room" data-layout-allow-overflow="">
+            <!-- MEDIA clean plate: the room with the speaker painted out (same framing as the take). Graded like the take. -->
+            <img id="vg-plate" class="vg-plate" src="assets/fx/vertigo/clean-plate.jpg" alt="" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}">
+            <!-- zoom-blur ghosts: low-opacity copies of the plate (CSS background, so the plate is decoded once) pushed outward at the peak -->
+            <div id="vg-ghost-1" class="vg-ghost"></div>
+            <div id="vg-ghost-2" class="vg-ghost"></div>
+          </div>
+          <div id="vg-dark"></div>
+          <div id="vg-word"></div>
+          <div id="vg-rule"></div>
+          <div id="vg-tag"><span id="vg-sq" class="vg-sq"></span></div>
+          <div id="vg-subj">
+            <!-- MEDIA matte: VP9-with-alpha cut-out, muted (the root plays the voice). data-media-start = matte second at slot start; data-duration = slot duration. -->
+            <video id="vg-fg" class="clip take-fg" src="assets/bh1-fg.webm" muted playsinline data-start="0" data-duration="3.5" data-media-start="0" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+          </div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          // ======================= CONFIG (edit this to reuse) =======================
+          var CONFIG = {
+            duration: 3.5,                 // slot length (s); keep equal to the host data-duration
+            word: "100%",                  // giant behind-head word (Anton). 1-5 characters read best.
+            wordSize: 396,                 // px; "100%" is 2.38 em wide in Anton, so 396 px = ~940 px wide
+            wordTop: 174,                  // line-box top; cap top lands ~0.065 em lower (keep cap top below y 170 HUD band)
+            ruleTop: 562,                  // red rule under the word
+            tag: "THE CLAIM",              // typed mono tag under the rule (left of the head)
+            tagPos: { x: 72, y: 592 },
+            subjectY: 200,                 // px the cut-out is shifted DOWN, freeing the top third for the word.
+                                           // 0 = original framing (then the word hides behind the hair: skip it).
+            focus: { x: 600, y: 760 },     // face after the shift: entry-camera origin and zoom-blur centre
+            tableY: 1635,                  // table edge in the SOURCE frame. The room is shifted by subjectY and
+                                           // scales about this line, so the forearms always rest on the table.
+                                           // Room scale must stay >= 1 + subjectY / tableY (1.123 here) to cover the top.
+            entry: { from: 1.22, dur: 0.7 },          // camera eases out of the zoom-through (1.22 -> 1). from: 1 = no entry move
+            dolly: { from: 1.62, to: 1.18, start: 0.0, dur: 1.6, driftTo: 1.15 }, // room scale: stretch away, then slow drift (see tableY)
+            blur: { peak: 0.07, inAt: 0.42, peakAt: 0.8, outAt: 1.45 },          // zoom-blur ghost spread (scale offset) and its window
+            dark: [[0.42, 1, 0.42], [0.95, 0.5, 0.95], [2.4, 0.32, 1.1]],        // room darkening keys: [start, opacity, duration]
+            t: { word: 0.70, rule: 0.86, tag: 1.08 }  // cues, local s: "100%" is spoken at 0.76
+          };
+          // ===========================================================================
+
+          var F = CONFIG.focus, origin = F.x + "px " + F.y + "px";
+          var word = document.getElementById("vg-word");
+          word.textContent = CONFIG.word;
+          word.style.fontSize = CONFIG.wordSize + "px"; word.style.height = CONFIG.wordSize + "px"; word.style.top = CONFIG.wordTop + "px";
+          document.getElementById("vg-rule").style.top = CONFIG.ruleTop + "px";
+          var tagEl = document.getElementById("vg-tag");
+          tagEl.style.left = CONFIG.tagPos.x + "px"; tagEl.style.top = CONFIG.tagPos.y + "px";
+          var tagTxt = document.createElement("span"); tagEl.appendChild(tagTxt);  // one flex item: the gap stays between square and text
+          var tagChars = CONFIG.tag.split("").map(function (ch, k) {
+            var s = document.createElement("span"); s.id = "vg-tc" + k; s.textContent = ch; s.style.opacity = "0"; tagTxt.appendChild(s); return s;
+          });
+          gsap.set("#vg-subj", { y: CONFIG.subjectY });
+          gsap.set("#vg-cam", { transformOrigin: origin });
+          gsap.set("#vg-room", { y: CONFIG.subjectY, transformOrigin: F.x + "px " + CONFIG.tableY + "px" });
+          gsap.set(["#vg-ghost-1", "#vg-ghost-2"], { transformOrigin: F.x + "px " + (F.y - CONFIG.subjectY) + "px" });
+          gsap.set("#vg-word", { transformOrigin: "50% 60%" });
+          gsap.set("#vg-rule", { transformOrigin: "0% 50%" });
+
+          var tl = gsap.timeline({ paused: true });
+          // entry: continue the zoom-through's forward motion, settle on the frame
+          tl.fromTo("#vg-cam", { scale: CONFIG.entry.from }, { scale: 1, duration: CONFIG.entry.dur, ease: "power3.out", immediateRender: true }, 0);
+
+          // dolly zoom: the room stretches away (scale down) while the cut-out holds its size
+          var D = CONFIG.dolly;
+          tl.fromTo("#vg-room", { scale: D.from }, { scale: D.to, duration: D.dur, ease: "power2.inOut", immediateRender: true }, D.start);
+          tl.fromTo("#vg-room", { scale: D.to }, { scale: D.driftTo, duration: CONFIG.duration - D.start - D.dur, ease: "none", immediateRender: false }, D.start + D.dur);
+
+          // radial zoom-blur: two plate copies pushed outward around the focus at the fastest moment
+          var B = CONFIG.blur, spread = { s: 0 };
+          function blurAt() {
+            gsap.set("#vg-ghost-1", { scale: 1 + spread.s, opacity: spread.s > 0.001 ? 0.34 : 0 });
+            gsap.set("#vg-ghost-2", { scale: 1 + spread.s * 2, opacity: spread.s > 0.001 ? 0.22 : 0 });
+          }
+          tl.fromTo(spread, { s: 0 }, { s: B.peak, duration: B.peakAt - B.inAt, ease: "power2.in", immediateRender: true, onUpdate: blurAt }, B.inAt);
+          tl.fromTo(spread, { s: B.peak }, { s: 0, duration: B.outAt - B.peakAt, ease: "power2.out", immediateRender: false, onUpdate: blurAt }, B.peakAt);
+
+          // room darkening: dips hard on the peak, settles, ends calm
+          var prev = 0;
+          CONFIG.dark.forEach(function (k) {
+            tl.fromTo("#vg-dark", { opacity: prev }, { opacity: k[1], duration: k[2], ease: "sine.inOut", immediateRender: prev === 0 }, k[0]);
+            prev = k[1];
+          });
+
+          // behind-head word (module 5 motion), red rule, typed tag
+          tl.fromTo("#vg-word", { opacity: 0, scale: 1.14 }, { opacity: 1, scale: 1, duration: 1.1, ease: "expo.out", immediateRender: true }, CONFIG.t.word);
+          tl.fromTo("#vg-word", { scale: 1 }, { scale: 0.985, duration: CONFIG.duration - CONFIG.t.word - 1.1, ease: "none", immediateRender: false }, CONFIG.t.word + 1.1);
+          tl.fromTo("#vg-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "power2.out", immediateRender: true }, CONFIG.t.rule);
+          tl.fromTo("#vg-sq", { opacity: 0 }, { opacity: 1, duration: 0.01, immediateRender: true }, CONFIG.t.tag - 0.03);
+          tagChars.forEach(function (s, k) { tl.set(s, { opacity: 1 }, CONFIG.t.tag + k * 0.035); });
+
+          window.__timelines["fx-vertigo"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

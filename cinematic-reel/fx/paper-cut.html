@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: PAPER CUT + DOODLE BOIL  (cinematic-reel effects library)
+        The speaker becomes a paper sticker: a thick film-white outline hugs his silhouette (built from
+        a drop-shadow Minkowski chain on the matte, no second video), with a soft paper lift shadow.
+        Hand-drawn doodles (red heart sticker, white sparkle lines, red arrow, Kalam note) draw on
+        and then BOIL: every 1/fps s each stroke is re-posed with seeded jitter, like hand animation.
+        Layers (bottom → top):
+          plate → #pc-dim (room dims a touch) → #pc-sticker [matte + white outline + lift shadow]
+          → #pc-doodles (SVG) → #pc-note-wrap (Kalam note)
+        REUSABLE HELPERS (lift these into the skill as-is):
+          boil(tl, pathEl, baseD, opts)   re-poses an SVG path d with seeded jitter (deterministic, seek-safe)
+          boilEl(tl, el, opts)            same idea for any element (x / y / rotation jitter), e.g. a hand note
+        Reuse: edit CONFIG (script), the doodle path data in CONFIG.doodles, and the two <video> media attributes.
+        Prefix: pc-
+      -->
+      <style>
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-papercut-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        .pc-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        #pc-dim { position: absolute; inset: 0; background: #050505; opacity: 0; }
+        .pc-fg { clip-path: polygon(360px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 1250px, 90px 1180px, 150px 1100px, 190px 1060px, 245px 1000px, 262px 960px, 312px 940px, 340px 925px, 360px 900px); }
+
+        /* sticker: the matte inside a wrapper whose filter grows a film-white border.
+           --pc-a is the step of the Minkowski chain: 4 axes x 2 signs → an octagon of radius ≈ 2.41 × --pc-a.
+           The last drop-shadow is the paper lift shadow. */
+        #pc-sticker {
+          position: absolute; inset: 0; --pc-a: 0px; --pc-d: calc(var(--pc-a) * 0.7071);
+          filter:
+            drop-shadow(var(--pc-a) 0 0 #efe9df) drop-shadow(calc(var(--pc-a) * -1) 0 0 #efe9df)
+            drop-shadow(0 var(--pc-a) 0 #efe9df) drop-shadow(0 calc(var(--pc-a) * -1) 0 #efe9df)
+            drop-shadow(var(--pc-d) var(--pc-d) 0 #efe9df) drop-shadow(calc(var(--pc-d) * -1) calc(var(--pc-d) * -1) 0 #efe9df)
+            drop-shadow(var(--pc-d) calc(var(--pc-d) * -1) 0 #efe9df) drop-shadow(calc(var(--pc-d) * -1) var(--pc-d) 0 #efe9df)
+            drop-shadow(0 14px 18px rgba(0, 0, 0, var(--pc-sh, 0)));
+        }
+
+        #pc-doodles { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+        #pc-doodles path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .pc-red { stroke: #e0301e; stroke-width: 7; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55)); }
+        .pc-white { stroke: #efe9df; stroke-width: 6; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55)); }
+        /* heart sticker: white sticker edge painted under a red fill */
+        #pc-heart-edge { stroke: #efe9df; stroke-width: 16; fill: #efe9df !important; opacity: 0; filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.45)); }
+        #pc-heart-fill { stroke: none; fill: #e0301e !important; opacity: 0; }
+        #pc-heart-line { stroke: #e0301e; stroke-width: 6; }
+        #pc-star { stroke: none; fill: #efe9df !important; opacity: 0; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55)); }
+
+        #pc-note-wrap { position: absolute; }
+        #pc-note { display: block; height: 96px; font-family: "Kalam", cursive; font-weight: 700; line-height: 96px; color: #efe9df; white-space: nowrap; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+      </style>
+
+      <div id="fx-papercut-root" data-composition-id="fx-papercut" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <!-- PLATE: assets/take.mp4. data-media-start = source second where this slot begins; data-duration = slot length. Muted (the root plays the voice). -->
+        <video id="pc-plate" class="pc-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="2.48" data-media-start="99" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        <div id="pc-dim" data-layout-allow-occlusion=""></div>
+
+        <div id="pc-sticker" data-layout-allow-overflow="">
+          <!-- MATTE: VP9-with-alpha cut-out of the same take (its own media-start, same duration). Muted.
+               The raw m3-fg.webm spills the curtain on ~19 of 75 frames; the outline dilation turns spill into white
+               blotches and straight lines. So this uses assets/fx/paper-cut/m3-fg-clean.webm: the same matte with the
+               spill removed (glitch-frame alpha limited to a 12 px dilation of the nearest clean frame's alpha, faint
+               alpha < 48 dropped, left strip only; script: assets/fx/paper-cut/clean_matte.py). The polygon clip below is a second safety net.
+               An outline effect needs a CLEAN matte: check every frame's alpha before you reuse it. -->
+          <video id="pc-fg" class="pc-vid pc-fg clip" src="assets/fx/paper-cut/m3-fg-clean.webm" muted playsinline data-start="0" data-duration="2.48" data-media-start="0" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+
+        <svg id="pc-doodles" viewBox="0 0 1080 1920">
+          <g id="pc-left-g">
+          <g id="pc-heart-g">
+            <path id="pc-heart-edge"></path>
+            <path id="pc-heart-fill"></path>
+            <path id="pc-heart-line" pathLength="1"></path>
+            <path id="pc-heart-shine" class="pc-white" pathLength="1"></path>
+          </g>
+          <path id="pc-spark-l1" class="pc-white" pathLength="1"></path>
+          <path id="pc-spark-l2" class="pc-white" pathLength="1"></path>
+          <path id="pc-spark-l3" class="pc-white" pathLength="1"></path>
+          </g>
+          <path id="pc-arrow" class="pc-red" pathLength="1"></path>
+          <path id="pc-arrow-hd" class="pc-red" pathLength="1"></path>
+          <path id="pc-spark-r1" class="pc-white" pathLength="1"></path>
+          <path id="pc-spark-r2" class="pc-white" pathLength="1"></path>
+          <path id="pc-spark-r3" class="pc-white" pathLength="1"></path>
+          <path id="pc-star"></path>
+        </svg>
+
+        <div id="pc-note-wrap"><span id="pc-note"></span></div>
+      </div>
+
+      <script>
+        (function () {
+          // ================= CONFIG: edit these to reuse the effect =================
+          var CONFIG = {
+            duration: 2.48,            // slot length (s); match the host data-duration and the videos' data-duration
+            outlineAt: 0.04,           // sticker outline grows from 0 here...
+            outlineDur: 0.34,          // ...over this long
+            outlineStep: 6.6,          // px per chain step; outline thickness ≈ 2.41 × step (6.6 → ~16 px)
+            liftShadow: 0.42,          // paper lift shadow opacity under the sticker (0 = off)
+            dim: 0.3,                  // room dim behind the sticker (0 = off)
+            // boil: re-pose every 1/fps s (fps 10 = every 3 frames at 30 fps), amp = max jitter px,
+            // poses = how many drawings cycle (hand animators loop 2-3)
+            boil: { fps: 10, amp: 2.6, poses: 3 },
+            note: "creativity!",       // Kalam pen note (film white)
+            noteBox: { x: 30, y: 698, size: 58, rot: -7 },
+            heartAt: 0.5,              // heart sticker draws on "creativity"
+            arrowAt: 0.62,             // arrow draws from the note to his head
+            noteAt: 0.74,              // note writes on
+            sparkLAt: 0.78,            // sparkles beside the heart
+            sparkRAt: 1.8,             // sparkles at his head on "show"
+            // Doodle geometry (frame px). Keep it in the free side of the frame (here: the curtain on the left,
+            // a strip right of the head). Hand-drawn feel: asymmetric curves, no perfect circles.
+            doodles: {
+              heart: "M176 392 C124 352 90 318 94 278 C97 247 124 230 149 236 C164 240 172 252 176 264 C180 250 190 236 207 232 C234 227 259 247 256 280 C252 318 224 352 176 392 Z",
+              heartShine: "M124 274 C126 262 134 254 146 252",
+              sparkL1: "M268 220 L292 196",
+              sparkL2: "M282 256 L314 252",
+              sparkL3: "M246 190 L250 160",
+              arrow: "M214 690 C226 632 262 584 334 556",
+              arrowHd: "M302 548 L336 555 L318 584",
+              sparkR1: "M924 352 L958 322",
+              sparkR2: "M940 398 L984 396",
+              sparkR3: "M912 306 L914 266",
+              star: "M1000 236 Q1004 258 1022 262 Q1004 266 1000 290 Q996 266 978 262 Q996 258 1000 236 Z"
+            },
+            heartRot: -10,             // heart sticker tilt (deg)
+            heartDy: 48                // moves heart + its sparkles down (keeps them out of the HUD band, y 100-170)
+          };
+          // ==========================================================================
+
+          function $(id) { return document.getElementById(id); }
+          var D = CONFIG.doodles, B = CONFIG.boil, T = CONFIG.duration;
+
+          // ---------------------------------------------------------------------------
+          // REUSABLE: seeded hash → [0,1). Deterministic: same (seed, pose, index) → same value.
+          function hash01(seed, pose, i) {
+            var x = Math.sin(seed * 374.761 + pose * 91.137 + i * 12.9898) * 43758.5453;
+            return x - Math.floor(x);
+          }
+
+          // REUSABLE: boil(tl, pathEl, baseD, opts)
+          //   Re-poses an SVG path every 1/fps seconds by jittering every number in baseD by ±amp px.
+          //   Poses cycle (pose = step % poses), like a hand animator's 2–3 drawing loop.
+          //   It only adds tl.set() calls, so it is seek-safe and deterministic (no clocks, no Math.random).
+          //   opts: { seed (int, unique per path), fps = 10, amp = 2.5, poses = 3, start = 0, end = tl end }
+          //   Tip: give stroked paths pathLength="1" so a dash draw-on (dashoffset 1 → 0) survives the re-posing.
+          function boil(tl, pathEl, baseD, opts) {
+            var o = opts || {}, fps = o.fps || 10, amp = o.amp == null ? 2.5 : o.amp, poses = o.poses || 3;
+            var seed = o.seed || 1, start = o.start || 0, end = o.end == null ? T : o.end;
+            var cache = [];
+            function pose(p) {
+              if (cache[p]) return cache[p];
+              var i = 0;
+              cache[p] = baseD.replace(/-?\d*\.?\d+/g, function (n) {
+                var v = parseFloat(n) + (hash01(seed, p, i++) - 0.5) * 2 * amp;
+                return v.toFixed(1);
+              });
+              return cache[p];
+            }
+            tl.set(pathEl, { attr: { d: pose(0) } }, 0);                  // pose 0 before it appears
+            for (var k = 0; start + k / fps < end; k++) {
+              tl.set(pathEl, { attr: { d: pose(k % poses) } }, start + k / fps);
+            }
+          }
+
+          // REUSABLE: boilEl(tl, el, opts) — the same boil for any element (text, image):
+          //   x / y jitter of ±amp px and rotation jitter of ±rot deg per pose. Put it on a WRAPPER
+          //   whose transform nothing else animates. opts: { seed, fps = 10, amp = 1.5, rot = 0.6, poses = 3, start, end }
+          function boilEl(tl, el, opts) {
+            var o = opts || {}, fps = o.fps || 10, amp = o.amp == null ? 1.5 : o.amp, rot = o.rot == null ? 0.6 : o.rot;
+            var poses = o.poses || 3, seed = o.seed || 1, start = o.start || 0, end = o.end == null ? T : o.end;
+            for (var k = 0; start + k / fps < end; k++) {
+              var p = k % poses;
+              tl.set(el, { x: (hash01(seed, p, 0) - 0.5) * 2 * amp, y: (hash01(seed, p, 1) - 0.5) * 2 * amp, rotation: (hash01(seed, p, 2) - 0.5) * 2 * rot }, start + k / fps);
+            }
+          }
+          // ---------------------------------------------------------------------------
+
+          // ---- layout ----
+          var NB = CONFIG.noteBox, wrap = $("pc-note-wrap"), note = $("pc-note");
+          wrap.style.left = NB.x + "px"; wrap.style.top = NB.y + "px";
+          note.textContent = CONFIG.note; note.style.fontSize = NB.size + "px";
+          var hg = $("pc-heart-g");
+          hg.setAttribute("transform", "rotate(" + CONFIG.heartRot + " 176 310)");
+          $("pc-left-g").setAttribute("transform", "translate(0 " + CONFIG.heartDy + ")");
+
+          var tl = gsap.timeline({ paused: true });
+
+          // ---- sticker outline grows (paper cut) + room dims + lift shadow ----
+          tl.fromTo("#pc-sticker", { "--pc-a": "0px", "--pc-sh": 0 }, { "--pc-a": CONFIG.outlineStep + "px", "--pc-sh": CONFIG.liftShadow, duration: CONFIG.outlineDur, ease: "power2.out" }, CONFIG.outlineAt);
+          tl.fromTo("#pc-dim", { opacity: 0 }, { opacity: CONFIG.dim, duration: CONFIG.outlineDur, ease: "sine.inOut" }, CONFIG.outlineAt);
+
+          // ---- doodles: draw on, then boil until the end ----
+          function draw(id, at, dur) {
+            tl.fromTo("#" + id, { strokeDasharray: 1, strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: dur, ease: "power2.out" }, at);
+          }
+          var seed = 11;
+          function doodle(id, d, at, dur) { boil(tl, $(id), d, { seed: seed++, fps: B.fps, amp: B.amp, poses: B.poses, start: at }); if (dur) draw(id, at, dur); }
+
+          // heart sticker: red line draws, then the white edge + red fill settle in under it
+          doodle("pc-heart-line", D.heart, CONFIG.heartAt, 0.3);
+          boil(tl, $("pc-heart-edge"), D.heart, { seed: 11, fps: B.fps, amp: B.amp, poses: B.poses, start: CONFIG.heartAt });   // same seed as the line: edge, fill and line move together
+          boil(tl, $("pc-heart-fill"), D.heart, { seed: 11, fps: B.fps, amp: B.amp, poses: B.poses, start: CONFIG.heartAt });
+          tl.fromTo(["#pc-heart-edge", "#pc-heart-fill"], { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "sine.inOut" }, CONFIG.heartAt + 0.2);
+          doodle("pc-heart-shine", D.heartShine, CONFIG.heartAt + 0.3, 0.14);
+          doodle("pc-spark-l1", D.sparkL1, CONFIG.sparkLAt, 0.16);
+          doodle("pc-spark-l2", D.sparkL2, CONFIG.sparkLAt + 0.05, 0.16);
+          doodle("pc-spark-l3", D.sparkL3, CONFIG.sparkLAt + 0.1, 0.16);
+
+          // arrow from the note to his head
+          doodle("pc-arrow", D.arrow, CONFIG.arrowAt, 0.3);
+          doodle("pc-arrow-hd", D.arrowHd, CONFIG.arrowAt + 0.26, 0.14);
+
+          // note writes on left to right, then boils
+          tl.set(note, { rotation: NB.rot }, 0);
+          tl.fromTo(note, { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.42, ease: "sine.inOut" }, CONFIG.noteAt);
+          boilEl(tl, wrap, { seed: 97, fps: B.fps, amp: 1.4, rot: 0.7, poses: B.poses, start: CONFIG.noteAt });
+
+          // sparkles at his head on "show"
+          doodle("pc-spark-r1", D.sparkR1, CONFIG.sparkRAt, 0.16);
+          doodle("pc-spark-r2", D.sparkR2, CONFIG.sparkRAt + 0.05, 0.16);
+          doodle("pc-spark-r3", D.sparkR3, CONFIG.sparkRAt + 0.1, 0.16);
+          boil(tl, $("pc-star"), D.star, { seed: 61, fps: B.fps, amp: 2, poses: B.poses, start: CONFIG.sparkRAt });
+          tl.fromTo("#pc-star", { opacity: 0 }, { opacity: 1, duration: 0.14, ease: "sine.inOut" }, CONFIG.sparkRAt + 0.12);
+
+          tl.set({}, {}, T);
+          window.__timelines["fx-papercut"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

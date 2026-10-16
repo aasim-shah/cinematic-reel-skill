@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cinematic Reel · Claude Skill</title>
+<meta name="description" content="A Claude Code skill that turns one raw vertical talking-head clip into a premium documentary-style reel: letterbox, case-file HUD, evidence-board b-roll, behind-head titles and handwritten notes.">
+<meta property="og:title" content="Cinematic Reel · Claude Skill">
+<meta property="og:description" content="Turn a raw talking-head clip into a documentary-style reel with one prompt.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Kalam:wght@700&family=Playfair+Display:wght@900&family=Special+Elite&family=Tillana:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #050505;
+    --ink-2: #0e0f10;
+    --ink-3: #17191a;
+    --line: #26292b;
+    --film: #efe9df;
+    --muted: #9c968c;
+    --signal: #e0301e;
+    --paper: #ebe9e3;
+    --felt: #3a3d40;
+    --radius: 6px;
+    --wrap: 1120px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--ink); color: var(--film); font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  a { color: var(--film); text-decoration-color: var(--signal); text-underline-offset: 3px; }
+  a:hover { color: #fff; }
+  img, video { display: block; max-width: 100%; }
+  .wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+  .mono { font-family: "IBM Plex Mono", monospace; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; font-size: 12px; }
+  .sq { display: inline-block; width: 10px; height: 10px; background: var(--signal); margin-right: 10px; vertical-align: 1px; }
+  .hand { font-family: "Kalam", cursive; font-weight: 700; }
+  .hand-red { font-family: "Tillana", cursive; font-weight: 700; color: var(--signal); }
+
+  /* top HUD bar */
+  .hud { position: sticky; top: 0; z-index: 20; background: rgba(5, 5, 5, 0.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .hud .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; gap: 16px; }
+  .hud .mono:first-child { white-space: nowrap; }
+  .hero .wrap > *, .grid3 > *, .steps > *, .beats > *, .specimens > *, section .wrap > * { min-width: 0; }
+  body { overflow-x: hidden; }
+  .hud nav { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; }
+  .hud nav::-webkit-scrollbar { display: none; }
+  .hud nav a { color: var(--muted); text-decoration: none; white-space: nowrap; }
+  .hud nav a:hover { color: var(--film); }
+
+  /* hero */
+  .hero { padding: 72px 0 56px; position: relative; overflow: hidden; }
+  .hero .wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 56px; align-items: center; }
+  .hero h1 { font-family: "Anton", sans-serif; font-weight: 400; font-size: clamp(64px, 9vw, 124px); line-height: 0.92; text-transform: uppercase; letter-spacing: 0.005em; margin: 18px 0 22px; }
+  .hero h1 .circled { position: relative; display: inline-block; }
+  .hero h1 .circled svg { position: absolute; left: -6%; top: -12%; width: 112%; height: 124%; overflow: visible; pointer-events: none; }
+  .hero .lede { font-size: 20px; color: #d8d2c8; max-width: 560px; }
+  .hero .note { display: inline-block; margin-top: 20px; font-size: 26px; transform: rotate(-3deg); }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: var(--radius); font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; border: 1px solid var(--line); color: var(--film); transition: background 0.2s, border-color 0.2s; }
+  .btn.primary { background: var(--signal); border-color: var(--signal); color: #fff; }
+  .btn.primary:hover { background: #c4271a; }
+  .btn:hover { border-color: var(--film); }
+  .phone { position: relative; width: 100%; max-width: 360px; margin-left: auto; aspect-ratio: 9 / 16; border-radius: 28px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7), 0 0 0 8px var(--ink-3); background: #000; }
+  .mock { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 45%, #141414 0%, #050505 70%); }
+  .mock-hud { position: absolute; left: 0; right: 0; top: 7%; display: flex; justify-content: space-between; padding: 0 7%; font-size: 9.5px; color: var(--film); letter-spacing: 0.2em; }
+  .mock-hud .sq { width: 7px; height: 7px; margin-right: 6px; }
+  .mock-ttl { position: absolute; left: 8%; right: 6%; top: 40%; }
+  .mock-kick { font-size: 10px; margin-bottom: 10px; color: var(--film); }
+  .mock-kick .sq { width: 7px; height: 7px; margin-right: 6px; }
+  .mock-line { font-family: "Anton", sans-serif; font-size: clamp(30px, 3.6vw, 44px); line-height: 1.02; text-transform: uppercase; white-space: nowrap; }
+  .mock-line .circled { position: relative; display: inline-block; }
+  .mock-line .circled svg { position: absolute; left: -7%; top: -10%; width: 114%; height: 122%; overflow: visible; }
+  .mock-note { font-size: 0.5em; vertical-align: 0.6em; margin-left: 4px; text-transform: none; }
+  .phone .tag { position: absolute; left: 14px; bottom: 14px; background: rgba(5, 5, 5, 0.7); padding: 6px 10px; border-radius: 4px; }
+
+  /* sections */
+  section { padding: 80px 0; border-top: 1px solid var(--line); }
+  .kicker { color: var(--muted); margin-bottom: 14px; }
+  h2 { font-family: "Anton", sans-serif; font-weight: 400; font-size: clamp(40px, 5.4vw, 64px); line-height: 1; text-transform: uppercase; margin-bottom: 18px; }
+  h3 { font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 20px; margin: 30px 0 8px; }
+  p + p { margin-top: 14px; }
+  .sub { color: #cfc9bf; max-width: 760px; font-size: 18px; }
+  ul.clean, ol.clean { padding-left: 22px; margin-top: 12px; }
+  ul.clean li, ol.clean li { margin: 6px 0; }
+  ul.clean li::marker { color: var(--signal); }
+  ol.clean li::marker { color: var(--signal); font-family: "IBM Plex Mono", monospace; }
+
+  /* feature grid */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 36px; }
+  .card { background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .card h4 { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 10px; }
+  .card p { color: #cfc9bf; font-size: 15.5px; }
+
+  /* beat gallery */
+  .beats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 36px; }
+  .beat { background: var(--ink-2); border: 1px solid var(--line); border-top: 3px solid var(--signal); border-radius: var(--radius); padding: 18px 16px; }
+  .beat b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--film); margin-bottom: 8px; }
+  .beat p { font-size: 14px; color: #cfc9bf; line-height: 1.5; }
+
+  /* code */
+  pre { position: relative; background: var(--ink-2); border: 1px solid var(--line); border-left: 3px solid var(--signal); border-radius: var(--radius); padding: 18px 20px; margin: 14px 0; overflow-x: auto; font-family: "IBM Plex Mono", monospace; font-size: 14px; line-height: 1.6; color: #e9e3d9; }
+  code { font-family: "IBM Plex Mono", monospace; font-size: 0.9em; background: var(--ink-3); padding: 2px 6px; border-radius: 4px; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .copy { position: absolute; top: 10px; right: 10px; background: var(--ink-3); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 4px 9px; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em; cursor: pointer; }
+  .copy:hover { color: var(--film); }
+
+  /* steps */
+  .steps { counter-reset: s; display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 40px; margin-top: 28px; }
+  .step { counter-increment: s; display: grid; grid-template-columns: 52px 1fr; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .step::before { content: counter(s, decimal-leading-zero); font-family: "Anton", sans-serif; font-size: 30px; line-height: 1; color: var(--signal); }
+  .step b { display: block; font-weight: 600; }
+  .step span { color: #cfc9bf; font-size: 15.5px; }
+  .gate { background: rgba(224, 48, 30, 0.08); }
+
+  /* tables */
+  .table-wrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 560px; }
+  th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); background: var(--ink-2); }
+  tr:last-child td { border-bottom: none; }
+  td code { white-space: nowrap; }
+
+  /* palette */
+  .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 24px; }
+  .sw { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .sw i { display: block; height: 84px; }
+  .sw div { padding: 10px 12px; font-size: 13px; }
+  .sw div b { display: block; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
+
+  /* type specimens */
+  .specimens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
+  .spec { background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+  .spec .sample { font-size: 40px; line-height: 1.05; }
+  .spec .meta { color: var(--muted); font-size: 13px; }
+
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--signal); background: var(--ink-2); border-radius: var(--radius); padding: 18px 20px; margin-top: 22px; color: #d8d2c8; }
+  .callout b { color: var(--film); }
+
+  .tree { white-space: pre; }
+  details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  details summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  details summary::after { content: "+"; font-family: "IBM Plex Mono", monospace; color: var(--signal); }
+  details[open] summary::after { content: "–"; }
+  details p, details ul { margin-top: 10px; color: #cfc9bf; }
+
+  footer { border-top: 1px solid var(--line); padding: 40px 0 60px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+  @media (max-width: 960px) {
+    .hero .wrap { grid-template-columns: 1fr; gap: 40px; }
+    .phone { margin: 0 auto; max-width: 320px; }
+    .grid3, .specimens { grid-template-columns: 1fr 1fr; }
+    .beats { grid-template-columns: repeat(2, 1fr); }
+    .steps { grid-template-columns: 1fr; }
+    .swatches { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 600px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 16px; }
+    section { padding: 60px 0; }
+    .hero { padding: 44px 0 40px; }
+    .grid3, .specimens { grid-template-columns: 1fr; }
+    .beats { grid-template-columns: 1fr; }
+    .swatches { grid-template-columns: repeat(2, 1fr); }
+    .hud nav { gap: 16px; }
+    .hud .brand-full { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<header class="hud">
+  <div class="wrap">
+    <div class="mono"><span class="sq"></span>FILE 01 <span class="brand-full">/ CINEMATIC REEL</span></div>
+    <nav class="mono">
+      <a href="#install">Install</a>
+      <a href="#usage">Use</a>
+      <a href="#workflow">Workflow</a>
+      <a href="#style">Style</a>
+      <a href="#modules">Beats</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <div class="mono kicker"><span class="sq"></span>Claude Code skill · HyperFrames</div>
+        <h1>Cinematic<br><span class="circled">Reel<svg viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true"><path d="M160 10 C 120 0, 30 4, 12 30 C -4 58, 12 104, 70 112 C 130 120, 196 100, 196 62 C 196 30, 170 12, 120 8" fill="none" stroke="#e0301e" stroke-width="3.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg></span></h1>
+        <p class="lede">Drop in one raw vertical talking-head clip. Claude cuts the dead air, hides the bad takes and edits it into a premium investigative-documentary reel: letterbox, case-file HUD, evidence-board b-roll, a giant word behind your head and handwritten notes.</p>
+        <div class="note hand">ek prompt, poora edit <span class="hand-red">✓</span></div>
+        <div class="cta">
+          <a class="btn primary" href="cinematic-reel-skill.zip" download>↓ Download skill</a>
+          <a class="btn" href="#install">Install guide</a>
+        </div>
+      </div>
+      <div>
+        <div class="phone">
+          <div class="mock" aria-label="A chapter-title frame in the cinematic reel style">
+            <div class="mock-hud mono"><span><span class="sq"></span>FILE 01 / AI vs JOBS</span><span>TC 00:00:06:12</span></div>
+            <div class="mock-ttl">
+              <div class="mono mock-kick"><span class="sq"></span>AAPKI JOB</div>
+              <div class="mock-line">KITNE <span class="circled">KHATRE<svg viewBox="0 0 200 120" preserveAspectRatio="none" aria-hidden="true"><path d="M160 10 C 120 0, 30 4, 12 30 C -4 58, 12 104, 70 112 C 130 120, 196 100, 196 62 C 196 30, 170 12, 120 8" fill="none" stroke="#e0301e" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg></span></div>
+              <div class="mock-line">MEIN HAI? <span class="hand-red mock-note">kitna?</span></div>
+            </div>
+          </div>
+          <div class="tag mono">Chapter title · CSS mock</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHAT YOU GET -->
+  <section id="what">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>What it does</div>
+      <h2>A full edit,<br>not a filter</h2>
+      <p class="sub">The skill is a complete editing system. It has a locked visual style, a working template project and a step-by-step workflow, so every video comes out the same quality. You don't have to explain the style each time.</p>
+      <div class="grid3">
+        <div class="card"><h4>Cleans the voice</h4><p>It measures the raw audio for mud, hiss, clipping and dull tone, then applies a voice chain (EQ, de-esser, compression, −14 LUFS). Before and after numbers are reported.</p></div>
+        <div class="card"><h4>Hides bad takes</h4><p>It reviews every frame for closed eyes, looking away, odd faces and jump cuts. Each bad moment is covered by a full-screen evidence board while your voice keeps playing.</p></div>
+        <div class="card"><h4>Cuts the dead air</h4><p>Word-level transcription drives the cut list, the subtitles and the beat timing, so titles land exactly on the spoken word.</p></div>
+        <div class="card"><h4>Documentary look</h4><p>A natural skin grade, 2.39 letterbox moments, film grain, a typed <code>FILE 01</code> HUD with running timecode and clean subtitles.</p></div>
+        <div class="card"><h4>Motion graphics</h4><p>Chapter titles with a red hand circle, an evidence board the camera flies across, and a giant word behind your head (AI person matte).</p></div>
+        <div class="card"><h4>You approve first</h4><p>Before anything renders, Claude shows a storyboard of every beat and waits for your OK. Render, loudness check and contact sheet come after.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BEAT GALLERY -->
+  <section id="look">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>The look</div>
+      <h2>Six beats, one story</h2>
+      <p class="sub">Every reel is built from these six beats. Longer videos repeat them; see <a href="#modules">Beat modules</a>.</p>
+      <div class="beats">
+        <div class="beat"><b>01 · Cold open</b><p>Rack focus, slow push-in, the typed <code>FILE 01</code> case label and running timecode.</p></div>
+        <div class="beat"><b>02 · Hand note</b><p>A Kalam pen remark, written on, with a drawn arrow pointing at you.</p></div>
+        <div class="beat"><b>03 · Chapter title</b><p>Letterbox in, Anton words rise on the spoken words, a red circle and a Tillana reaction.</p></div>
+        <div class="beat"><b>04 · Evidence board</b><p>Full-screen b-roll that hides bad takes. The camera pans across clippings, polaroids and a stamp.</p></div>
+        <div class="beat"><b>05 · The claim</b><p>Red string to an index card, the key number circled and a hand note.</p></div>
+        <div class="beat"><b>06 · Behind the head</b><p>A giant word behind you via the person matte, a red rule and a riser.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section id="install">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>Install</div>
+      <h2>Set up in<br>two minutes</h2>
+
+      <h3>Requirements</h3>
+      <ul class="clean">
+        <li><a href="https://claude.com/claude-code">Claude Code</a> (CLI, desktop app or VS Code extension).</li>
+        <li><b>Node.js 18+</b>. HyperFrames runs through <code>npx hyperframes</code>, so there is nothing else to install.</li>
+        <li><b>ffmpeg</b> (<code>brew install ffmpeg</code>).</li>
+        <li><b>macOS</b> for source prep: it uses Apple's <code>avconvert</code> to convert iPhone HDR (HLG) footage to standard video. On other systems, give it a clip that is already SDR.</li>
+        <li>Optional: an ElevenLabs account for fast transcription of clips over about 40 s. Local whisper works too, but it is slow on older Macs.</li>
+      </ul>
+
+      <h3>1 · Download and unzip</h3>
+      <p>Download <a href="cinematic-reel-skill.zip" download>cinematic-reel-skill.zip</a>. It contains one folder, <code>cinematic-reel/</code>. Or clone the <a href="https://github.com/aasim-shah/cinematic-reel-skill">GitHub repo</a> and copy its <code>cinematic-reel/</code> folder:</p>
+<pre><code>git clone https://github.com/aasim-shah/cinematic-reel-skill.git
+cp -R cinematic-reel-skill/cinematic-reel ~/.claude/skills/</code></pre>
+
+      <h3>2 · Put it where Claude can find it</h3>
+      <p>For one project, put it in that project's skills folder:</p>
+<pre><code>mkdir -p .claude/skills
+unzip ~/Downloads/cinematic-reel-skill.zip -d .claude/skills</code></pre>
+      <p>Or put it in your personal skills folder to use it in every project:</p>
+<pre><code>mkdir -p ~/.claude/skills
+unzip ~/Downloads/cinematic-reel-skill.zip -d ~/.claude/skills</code></pre>
+
+      <h3>3 · Check it loaded</h3>
+      <p>Start Claude Code in your video folder and type <code>/cinematic-reel</code>. If the skill appears in the list, you're ready.</p>
+
+      <div class="callout"><b>Tip:</b> the skill uses Claude's HyperFrames skills (<code>/hyperframes</code>, <code>/hyperframes-core</code>, <code>/media-use</code>) for the video engine. Install them first from the <a href="https://hyperframes.heygen.com">HyperFrames docs</a>.</div>
+    </div>
+  </section>
+
+  <!-- USAGE -->
+  <section id="usage">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>Use</div>
+      <h2>One prompt</h2>
+      <p class="sub">Put your raw clip in the project folder and ask Claude to edit it. Mention the clip with <code>@</code> so Claude reads it.</p>
+<pre><code>@my-clip.mov edit this into a cinematic reel</code></pre>
+      <p>Other prompts that work:</p>
+<pre><code>/cinematic-reel @take-02.mov, the message is "AI won't take your job, people using AI will"
+
+@raw.mov there are retakes and mistakes, cut them and hide bad faces with b-roll
+
+make the storyboard for @interview.mp4 but don't render yet</code></pre>
+      <p>Claude asks only what it can't work out (for example the core message, if the speech is unclear). It then works through the steps below and <b>stops at the storyboard</b> for your approval. Reply <span class="hand">"looks good, render it"</span> or ask for changes.</p>
+
+      <h3>What you get back</h3>
+      <ul class="clean">
+        <li><code>videos/&lt;name&gt;/renders/&lt;name&gt;-final.mp4</code>: 1080×1920, 30 fps, about −14 LUFS, peaks below −1 dB.</li>
+        <li><code>FACE-QC.md</code>: every bad face moment found, and how it was hidden.</li>
+        <li><code>STORYBOARD.md</code> and <code>storyboard/index.html</code>: a visual card for every beat.</li>
+        <li>The full HyperFrames project, so you can tweak any beat and re-render.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- WORKFLOW -->
+  <section id="workflow">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>How it works</div>
+      <h2>Thirteen steps,<br>one gate</h2>
+      <p class="sub">Claude follows the same pipeline every time. GPU-heavy jobs (matte, transcription, render) run one at a time.</p>
+      <div class="steps">
+        <div class="step"><div><b>Project</b><span>Copies the template into <code>videos/&lt;name&gt;/</code> and writes a brief.</span></div></div>
+        <div class="step"><div><b>Audio QC</b><span>Measures mud, air, noise floor, clipping and channels on the raw clip.</span></div></div>
+        <div class="step"><div><b>Prep the source</b><span>HDR → SDR, 1080×1920 at 30 fps, voice clean-up to −14 LUFS.</span></div></div>
+        <div class="step"><div><b>Face QC</b><span>Every frame is checked for closed eyes, looking away, odd expressions and jump cuts.</span></div></div>
+        <div class="step"><div><b>Transcribe</b><span>Word-level timings for cuts, subtitles and beat timing.</span></div></div>
+        <div class="step"><div><b>Cut dead air</b><span>Keeps only the good ranges, with short audio ramps at every cut.</span></div></div>
+        <div class="step"><div><b>Person matte</b><span>An AI cut-out of the speaker, so words can sit behind the head.</span></div></div>
+        <div class="step"><div><b>Plan beats</b><span>Maps the script onto the beat modules and covers every bad face.</span></div></div>
+        <div class="step"><div><b>Build</b><span>Adapts the template: copy, timings, board contents, grade.</span></div></div>
+        <div class="step"><div><b>Check</b><span>HyperFrames lint and layout check until there are zero errors.</span></div></div>
+        <div class="step gate"><div><b>Storyboard gate</b><span>Snapshots every beat, shows you the board and waits for approval.</span></div></div>
+        <div class="step"><div><b>Render</b><span>CLI render at 30 fps, with the grade applied live.</span></div></div>
+        <div class="step"><div><b>Verify</b><span>Duration, loudness, true peak, SFX levels and a contact sheet, reported honestly.</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STYLE -->
+  <section id="style">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>Style system</div>
+      <h2>Locked tokens</h2>
+      <p class="sub">The style lives in <code>references/style.md</code>. Claude never swaps colours, fonts or motion between videos, which is why every reel looks the same.</p>
+
+      <h3>Palette: one accent only</h3>
+      <div class="swatches">
+        <div class="sw"><i style="background:#050505"></i><div><b>Ink</b>#050505 · bars, black</div></div>
+        <div class="sw"><i style="background:#efe9df"></i><div><b>Film</b>#efe9df · all type on video</div></div>
+        <div class="sw"><i style="background:#e0301e"></i><div><b>Signal</b>#e0301e · the only accent</div></div>
+        <div class="sw"><i style="background:#3a3d40"></i><div><b>Felt</b>#3a3d40 · board</div></div>
+        <div class="sw"><i style="background:#ebe9e3"></i><div><b>Paper</b>#ebe9e3 · cards, clippings</div></div>
+      </div>
+
+      <h3>Type</h3>
+      <div class="specimens">
+        <div class="spec"><div class="sample" style="font-family:'Anton';text-transform:uppercase">Kitne khatre</div><div class="meta">Anton · titles, giant behind-head word</div></div>
+        <div class="spec"><div class="sample mono" style="font-size:20px">■ FILE 01 / AI vs JOBS</div><div class="meta">IBM Plex Mono · HUD, kickers, tags</div></div>
+        <div class="spec"><div class="sample" style="font-size:26px;font-weight:500">everybody <span style="opacity:.4">is worried</span></div><div class="meta">IBM Plex Sans · subtitles, lit word by word</div></div>
+        <div class="spec"><div class="sample hand" style="font-size:36px">sab log pareshan hain</div><div class="meta">Kalam · pen notes and labels</div></div>
+        <div class="spec"><div class="sample hand-red" style="font-size:40px">kitna?</div><div class="meta">Tillana · reactions and emphasis</div></div>
+        <div class="spec"><div class="sample" style="font-family:'Special Elite',monospace;font-size:24px">CASE FILE 01 · <span style="font-family:'Playfair Display';font-weight:900">ELON MUSK</span></div><div class="meta">Special Elite + Playfair Display · board only</div></div>
+      </div>
+
+      <h3>Grade</h3>
+      <p>A natural skin grade. Faces look like the raw footage, not orange or crushed. The cinematic feel comes from the letterbox, HUD, grain and board, not from heavy colour. The exact grade JSON is in <code>style.md</code>.</p>
+
+      <h3>Sound</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Moment</th><th>Sound</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td>Typed label</td><td>click</td><td>One click per label, never per letter</td></tr>
+          <tr><td>Red circle lands</td><td>soft tick</td><td>One per title</td></tr>
+          <tr><td>Letterbox in / reopen</td><td>short whoosh</td><td>Soft, under the voice</td></tr>
+          <tr><td>Shutter to black, crash push</td><td>woosh</td><td>On the cut</td></tr>
+          <tr><td>Name or source appears, flash cut</td><td>camera flash</td><td>Faded out in 0.5 s</td></tr>
+          <tr><td>Stamp hits the board</td><td>mechanical click</td><td>One</td></tr>
+          <tr><td>Last line</td><td>sharp riser</td><td>Into the end</td></tr>
+        </tbody>
+      </table></div>
+      <div class="callout"><b>Click budget:</b> at most about one click-type sound every 2 seconds. More than that sounds busy. There is no music bed unless you supply one.</div>
+    </div>
+  </section>
+
+  <!-- MODULES -->
+  <section id="modules">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>Beat modules</div>
+      <h2>Five building blocks</h2>
+      <p class="sub">Every reel is made from these modules. Claude changes the words, the timing and the board contents, never the design.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Module</th><th>On screen</th><th>Used for</th></tr></thead>
+        <tbody>
+          <tr><td><b>1 · Cold open</b></td><td>Rack focus, slow push-in, typed <code>FILE 01 / TOPIC</code>, timecode, subtitles, one pen note</td><td>The hook</td></tr>
+          <tr><td><b>2 · Chapter title</b></td><td>Letterbox, two-line Anton title rising word by word, red circle on the keyword, red Tillana reaction</td><td>Each new idea</td></tr>
+          <tr><td><b>3 · Shutter</b></td><td>Bars close to black, title rides up and blurs out</td><td>Transition into a board; hides a short bad take</td></tr>
+          <tr><td><b>4 · Evidence board</b></td><td>Felt board, newspaper clipping, polaroids, chart, index card, stamp and red string, with the camera flying across</td><td>Names, sources, numbers; hides bad takes</td></tr>
+          <tr><td><b>5 · Behind the head</b></td><td>Flash cut back, room dims, giant word behind the speaker, red rule, tag, hand note, riser</td><td>The key claim and the ending</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Longer videos (30–120 s)</h3>
+      <ul class="clean">
+        <li>Order: cold open → (chapter title → board or face beat) × N → behind-head ending.</li>
+        <li>About one beat every 3–6 seconds: roughly 8 beats for 30 s and 15 for 60 s.</li>
+        <li>A new chapter title (and <code>FILE 02</code>, <code>FILE 03</code>…) for each new idea, at most one every ~10 s.</li>
+        <li>One evidence board per bad take, and at least one every ~15 s, each labelled <code>EXHIBIT A</code>, <code>B</code>, <code>C</code> with a different mix of items.</li>
+        <li>About one hand note per beat, never two on screen at once.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- INSIDE -->
+  <section id="inside">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>What's inside</div>
+      <h2>The package</h2>
+<pre class="tree"><code>cinematic-reel/
+├── SKILL.md                  workflow, quick reference, common mistakes
+├── references/
+│   ├── style.md              palette, type, grade JSON, motion, sound map
+│   ├── modules.md            the five beat modules and how to scale them
+│   └── qc.md                 Audio QC, Face QC, recording tips, render notes
+├── scripts/
+│   ├── new-project.sh        copies the template into videos/&lt;name&gt;/
+│   ├── audio-qc.sh           voice analysis report
+│   └── prep-source.sh        HDR → SDR, 1080×1920 at 30 fps, voice clean-up
+└── template/                 the approved sample as a working HyperFrames project
+    ├── index.html            main timeline (all modules)
+    ├── compositions/board.html
+    ├── storyboard-template.html
+    └── assets/               fonts, textures, sound effects</code></pre>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>FAQ</div>
+      <h2>Questions</h2>
+      <details><summary>Which languages does it support?</summary><p>Any language the transcriber handles. It was built for Roman Urdu / Hindi mixed with English: subtitles are written in the speaker's language, and Urdu/Hindi is written in Roman script.</p></details>
+      <details><summary>How long does a render take?</summary><p>About 2–5 minutes for a 15–30 s reel on a 2019 Intel MacBook Pro, more for longer videos. The person matte is the slowest step (about 1.3 s of CPU per frame), so Claude only mattes the short clips that need it.</p></details>
+      <details><summary>Can I change the colours or fonts?</summary><p>Yes. Edit <code>references/style.md</code> and the template together. Keep exactly one accent colour, and keep the handwriting to two fonts: one pen hand and one display hand.</p></details>
+      <details><summary>My clip has lots of mistakes and retakes. Is that OK?</summary><p>Yes, that's what it's built for. Dead air and restarts are cut. Bad faces are hidden under evidence boards while the voice continues. If there are too many to hide cleanly, Claude tells you and suggests which takes to drop.</p></details>
+      <details><summary>Does it use stock footage?</summary><p>No. Every b-roll is drawn in HTML/SVG (clippings, cards, charts, silhouettes), so there are no licences to manage and nothing looks generic.</p></details>
+      <details><summary>The render is very slow.</summary><p>Make sure only one render is running, and render from the CLI, not the HyperFrames Studio. The Studio can fall back to software rendering.</p></details>
+      <details><summary>The voice got quieter after render.</summary><p>The renderer lowers the whole mix if any peak goes over −1 dBTP. The template's master bus (+1.5 dB gain, −3 dBTP limiter) prevents that. Check the render log for "lowered".</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><span class="sq"></span>Cinematic Reel · a Claude Code skill built on HyperFrames</div>
+    <div>Fonts: Anton, IBM Plex, Special Elite, Playfair Display, Kalam, Tillana (SIL Open Font License).</div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll("pre").forEach(function (pre) {
+    if (pre.classList.contains("tree")) return;
+    var b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "COPY";
+    b.addEventListener("click", function () {
+      var text = pre.querySelector("code").innerText;
+      try {
+        navigator.clipboard.writeText(text).then(function () {
+          b.textContent = "COPIED";
+          setTimeout(function () { b.textContent = "COPY"; }, 1400);
+        });
+      } catch (e) {}
+    });
+    pre.appendChild(b);
+  });
+</script>
+</body>
+</html>

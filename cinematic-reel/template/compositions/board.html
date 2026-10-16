@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "IBM Plex Sans"; src: url("assets/type/IBMPlexSans.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+        @font-face { font-family: "Special Elite"; src: url("assets/type/SpecialElite.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+        @font-face { font-family: "Tillana"; src: url("assets/fonts/Tillana-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+        #bd-root { position: absolute; inset: 0; overflow: hidden; background: #141617; }
+        #bd-view { position: absolute; left: 540px; top: 960px; width: 0; height: 0; }
+        #bd-zoom { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; }
+        #bd-pan { position: absolute; left: 0; top: 0; width: 2400px; height: 3600px; }
+
+        /* felt board + lamp pool (world space, so texture scales with the camera) */
+        #bd-felt {
+          position: absolute; left: -1600px; top: -1600px; width: 5600px; height: 6800px;
+          background-color: #3a3d40; background-image: url("assets/tex/felt.png"); background-size: 700px 700px;
+          background-blend-mode: multiply;
+        }
+        #bd-lamp {
+          position: absolute; left: -900px; top: -700px; width: 4200px; height: 5000px;
+          background: radial-gradient(ellipse 42% 36% at 44% 34%, rgba(255, 236, 214, 0.16) 0%, rgba(255, 236, 214, 0.05) 45%, rgba(255, 236, 214, 0) 75%);
+        }
+
+        .bd-item { position: absolute; }
+        .bd-paper {
+          background-color: #dedbd3; background-image: url("assets/tex/paper.png"); background-size: 600px 600px;
+          background-blend-mode: multiply;
+          box-shadow: 0 34px 60px rgba(0, 0, 0, 0.6), 0 8px 14px rgba(0, 0, 0, 0.45);
+        }
+
+        /* ---------- newspaper clipping ---------- */
+        #bd-clip { left: 250px; top: 360px; width: 860px; height: 1180px; transform: rotate(-2.5deg); color: #151515; }
+        #bd-clip .bd-a { position: absolute; left: 56px; right: 56px; }
+        #bd-mast { top: 44px; height: 76px; font-family: "Playfair Display", serif; font-weight: 900; font-size: 60px; line-height: 76px; text-align: center; letter-spacing: 0.01em; white-space: nowrap; }
+        #bd-rule2 { top: 126px; height: 10px; border-top: 3px solid #151515; border-bottom: 1.5px solid #151515; }
+        #bd-dateline { top: 144px; height: 24px; display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 16px; line-height: 24px; letter-spacing: 0.16em; }
+        #bd-rule1 { top: 178px; height: 0; border-top: 1.5px solid #151515; }
+        #bd-head { top: 194px; height: 136px; font-family: "Playfair Display", serif; font-weight: 900; font-size: 116px; line-height: 136px; text-align: center; letter-spacing: -0.012em; white-space: nowrap; }
+        #bd-deck { top: 340px; height: 72px; display: flex; align-items: center; gap: 22px; }
+        .bd-deck-line { flex: 1; height: 2px; background: #151515; }
+        #bd-iv-wrap { position: relative; display: block; }
+        #bd-iv { display: block; font-family: "Playfair Display", serif; font-weight: 800; font-size: 46px; line-height: 72px; letter-spacing: 0.2em; padding-left: 0.2em; white-space: nowrap; }
+        #bd-ivbox { position: absolute; left: -26px; top: -6px; width: calc(100% + 52px); height: 84px; overflow: visible; }
+        #bd-photo { top: 430px; height: 400px; overflow: hidden; background: linear-gradient(180deg, #6a6966 0%, #3a3a38 60%, #272726 100%); }
+        #bd-photo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        #bd-halftone { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(12, 12, 12, 0.6) 0, rgba(12, 12, 12, 0.6) 1.7px, rgba(0, 0, 0, 0) 2.3px) 0 0 / 7px 7px; mix-blend-mode: multiply; }
+        #bd-cap { top: 842px; height: 22px; font-family: "IBM Plex Mono", monospace; font-size: 15px; letter-spacing: 0.12em; color: #383838; }
+        #bd-body { top: 884px; height: 250px; display: grid; grid-template-columns: 1fr 1fr 1fr; column-gap: 28px; }
+        .bd-col { position: relative; background: repeating-linear-gradient(180deg, rgba(28, 28, 28, 0.62) 0, rgba(28, 28, 28, 0.62) 7px, rgba(0, 0, 0, 0) 7px, rgba(0, 0, 0, 0) 16px); }
+        .bd-gap { position: absolute; right: 0; height: 9px; background: #dad7cf; }
+
+        /* rubber stamp (rotation on wrapper, hit animation on inner) */
+        #bd-stamp-rot { position: absolute; left: 452px; top: 660px; transform: rotate(-9deg); }
+        #bd-stamp {
+          padding: 12px 26px 10px; border: 5px solid #c4301e; box-shadow: inset 0 0 0 4px #dedbd3, inset 0 0 0 7px #c4301e;
+          color: #c4301e; text-align: center; mix-blend-mode: multiply; opacity: 0;
+          -webkit-mask-image: url("assets/tex/ink-mask.png"); mask-image: url("assets/tex/ink-mask.png");
+          -webkit-mask-size: 100% 100%; mask-size: 100% 100%;
+        }
+        #bd-stamp .s1 { font-family: "Special Elite", monospace; font-size: 28px; letter-spacing: 0.34em; line-height: 36px; }
+        #bd-stamp .s2 { font-family: "Special Elite", monospace; font-size: 56px; letter-spacing: 0.06em; line-height: 62px; white-space: nowrap; }
+
+        /* ---------- polaroids ---------- */
+        .bd-pol { position: absolute; padding: 28px 28px 0; background-color: #ecebe6; background-image: url("assets/tex/paper.png"); background-size: 600px 600px; background-blend-mode: multiply; box-shadow: 0 34px 60px rgba(0, 0, 0, 0.6), 0 8px 14px rgba(0, 0, 0, 0.45); }
+        .bd-pol-img { position: relative; overflow: hidden; }
+        .bd-pol-img svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .bd-pol-label { font-family: "Kalam", cursive; font-weight: 700; font-size: 40px; line-height: 44px; color: #222; padding-top: 30px; white-space: nowrap; }
+        .bd-tape { position: absolute; left: 50%; top: -30px; width: 190px; height: 58px; margin-left: -95px; background: rgba(206, 204, 196, 0.62); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18); }
+        #bd-p1 { left: 1270px; top: 270px; width: 560px; height: 690px; transform: rotate(4deg); }
+        #bd-p1 .bd-pol-img { width: 504px; height: 504px; }
+        #bd-p2 { left: 1460px; top: 1300px; width: 540px; height: 670px; transform: rotate(-5deg); }
+        #bd-p2 .bd-pol-img { width: 484px; height: 484px; }
+
+        /* ---------- case strip ---------- */
+        #bd-case { left: 300px; top: 150px; width: 820px; height: 96px; transform: rotate(-1.5deg); font-family: "Special Elite", monospace; font-size: 40px; line-height: 96px; padding-left: 92px; color: #1c1c1c; letter-spacing: 0.05em; white-space: nowrap; }
+
+        /* ---------- chart printout ---------- */
+        #bd-chart { left: 190px; top: 1720px; width: 620px; height: 480px; transform: rotate(-3deg); color: #1c1c1c; }
+        #bd-chart-t { position: absolute; left: 44px; top: 58px; font-family: "IBM Plex Mono", monospace; font-size: 22px; letter-spacing: 0.18em; }
+        #bd-chart-axis { position: absolute; left: 44px; right: 44px; top: 120px; bottom: 60px; border-left: 2px solid #1c1c1c; border-bottom: 2px solid #1c1c1c; display: flex; align-items: flex-end; justify-content: space-around; padding: 0 18px; }
+        .bd-bar { width: 52px; background: #4a4a48; }
+        .bd-bar.hot { background: #c4301e; }
+        #bd-chart-x { position: absolute; left: 44px; right: 44px; bottom: 22px; display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-size: 15px; letter-spacing: 0.1em; }
+
+        /* ---------- 2029 index card ---------- */
+        #bd-card {
+          left: 700px; top: 2250px; width: 1000px; height: 620px; transform: rotate(2deg); color: #151515;
+          background-color: #ebe9e3;
+          background-image: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 60px, rgba(70, 80, 90, 0.2) 60px, rgba(70, 80, 90, 0.2) 62px), url("assets/tex/paper.png");
+          background-position: 0 136px, 0 0; background-size: 100% 100%, 600px 600px; background-repeat: no-repeat, repeat;
+          background-blend-mode: normal, multiply;
+        }
+        #bd-card-margin { position: absolute; left: 0; right: 0; top: 130px; height: 3px; background: rgba(196, 48, 30, 0.8); }
+        #bd-pred { position: absolute; left: 64px; top: 46px; font-family: "Special Elite", monospace; font-size: 48px; line-height: 64px; letter-spacing: 0.06em; white-space: nowrap; }
+        #bd-num { position: absolute; left: 0; right: 0; top: 150px; height: 330px; font-family: "Anton", sans-serif; font-size: 300px; line-height: 330px; text-align: center; letter-spacing: 0.01em; }
+        #bd-num-circle { position: absolute; left: 180px; top: 150px; width: 640px; height: 340px; overflow: visible; }
+        #bd-card-foot { position: absolute; left: 64px; bottom: 34px; font-family: "Kalam", cursive; font-weight: 700; font-size: 50px; line-height: 64px; white-space: nowrap; }
+        #bd-card-note { position: absolute; right: 110px; bottom: 30px; font-family: "Tillana", cursive; font-weight: 700; font-size: 64px; line-height: 80px; color: #c4301e; white-space: nowrap; transform: rotate(-6deg); }
+
+        /* ---------- strings + pins ---------- */
+        #bd-threads { position: absolute; left: 0; top: 0; width: 2400px; height: 3600px; overflow: visible; }
+        .bd-pin { position: absolute; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; box-shadow: 8px 12px 7px rgba(0, 0, 0, 0.5); }
+        .bd-pin.red { background: radial-gradient(circle at 36% 32%, #ff9a84 0, #dd3a22 34%, #8a170b 100%); }
+        .bd-pin.steel { background: radial-gradient(circle at 36% 32%, #ffffff 0, #b9bcbf 34%, #4a4d50 100%); }
+
+        /* screen-space lens vignette */
+        #bd-vig { position: absolute; inset: 0; background: radial-gradient(ellipse 78% 62% at 50% 46%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.72) 100%); }
+      </style>
+
+      <div id="bd-root" data-composition-id="board" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="bd-view">
+          <div id="bd-zoom">
+            <div id="bd-pan">
+              <div id="bd-felt"></div>
+              <div id="bd-lamp"></div>
+
+              <div id="bd-case" class="bd-item bd-paper">CASE FILE 01 — AI vs JOBS</div>
+
+              <div id="bd-chart" class="bd-item bd-paper">
+                <div id="bd-chart-t">AUTOMATION INDEX</div>
+                <div id="bd-chart-axis">
+                  <div class="bd-bar" style="height: 18%;"></div>
+                  <div class="bd-bar" style="height: 26%;"></div>
+                  <div class="bd-bar" style="height: 37%;"></div>
+                  <div class="bd-bar" style="height: 52%;"></div>
+                  <div class="bd-bar" style="height: 71%;"></div>
+                  <div class="bd-bar hot" style="height: 94%;"></div>
+                </div>
+                <div id="bd-chart-x"><span>2019</span><span>2023</span><span>2026</span><span>2029</span></div>
+              </div>
+
+              <div id="bd-p1" class="bd-pol">
+                <div class="bd-tape" style="transform: rotate(-4deg);"></div>
+                <div class="bd-pol-img">
+                  <svg viewBox="0 0 504 504" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="bd-p1g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d666c"/><stop offset="1" stop-color="#1b1f22"/></linearGradient>
+                      <radialGradient id="bd-p1l" cx="0.72" cy="0.3" r="0.5"><stop offset="0" stop-color="#d8dcdc" stop-opacity="0.55"/><stop offset="1" stop-color="#d8dcdc" stop-opacity="0"/></radialGradient>
+                    </defs>
+                    <rect width="504" height="504" fill="url(#bd-p1g)"/>
+                    <rect x="300" y="40" width="170" height="230" fill="#c9cfd0" opacity="0.28"/>
+                    <rect width="504" height="504" fill="url(#bd-p1l)"/>
+                    <rect x="0" y="372" width="504" height="132" fill="#121517"/>
+                    <rect x="236" y="214" width="196" height="132" rx="6" fill="#0d0f10"/>
+                    <rect x="322" y="346" width="24" height="28" fill="#0d0f10"/>
+                    <circle cx="150" cy="226" r="54" fill="#0b0c0d"/>
+                    <path d="M40 504 C44 360 92 300 150 296 C214 300 262 360 268 504 Z" fill="#0b0c0d"/>
+                  </svg>
+                </div>
+                <div class="bd-pol-label">exhibit 02 · office</div>
+              </div>
+
+              <div id="bd-p2" class="bd-pol">
+                <div class="bd-tape" style="transform: rotate(3deg);"></div>
+                <div class="bd-pol-img">
+                  <svg viewBox="0 0 484 484" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="bd-p2g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f585e"/><stop offset="1" stop-color="#16191b"/></linearGradient>
+                    </defs>
+                    <rect width="484" height="484" fill="url(#bd-p2g)"/>
+                    <rect x="0" y="400" width="484" height="84" fill="#101213"/>
+                    <rect x="120" y="360" width="150" height="44" fill="#0b0c0d"/>
+                    <rect x="170" y="210" width="44" height="160" fill="#0b0c0d" transform="rotate(-12 192 290)"/>
+                    <circle cx="205" cy="208" r="30" fill="#0b0c0d"/>
+                    <rect x="205" y="186" width="190" height="40" fill="#0b0c0d" transform="rotate(-28 205 206)"/>
+                    <circle cx="372" cy="110" r="24" fill="#0b0c0d"/>
+                    <path d="M372 110 L410 150 L396 162 L362 126 Z M372 110 L420 98 L422 116 L380 126 Z" fill="#0b0c0d"/>
+                    <circle cx="205" cy="208" r="10" fill="#3b4246"/>
+                  </svg>
+                </div>
+                <div class="bd-pol-label">exhibit 03 · automation</div>
+              </div>
+
+              <div id="bd-clip" class="bd-item bd-paper">
+                <div id="bd-mast" class="bd-a">THE WORLD LEDGER</div>
+                <div id="bd-rule2" class="bd-a"></div>
+                <div id="bd-dateline" class="bd-a"><span>TECHNOLOGY</span><span>WORLD EDITION</span><span>2026</span></div>
+                <div id="bd-rule1" class="bd-a"></div>
+                <div id="bd-head" class="bd-a">ELON MUSK</div>
+                <div id="bd-deck" class="bd-a">
+                  <div class="bd-deck-line"></div>
+                  <div id="bd-iv-wrap">
+                    <div id="bd-iv">INTERVIEW</div>
+                    <svg id="bd-ivbox" viewBox="0 0 100 84" preserveAspectRatio="none">
+                      <path id="bd-ivbox-p" d="M6 10 C 30 5, 70 4, 96 9 C 99 30, 98 58, 95 77 C 70 81, 30 81, 4 76 C 2 56, 3 30, 8 6 L 30 5" fill="none" stroke="#d8321d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                    </svg>
+                  </div>
+                  <div class="bd-deck-line"></div>
+                </div>
+                <div id="bd-photo" class="bd-a">
+                  <svg viewBox="0 0 748 400" preserveAspectRatio="none">
+                    <defs>
+                      <radialGradient id="bd-ph-l" cx="0.68" cy="0.28" r="0.55"><stop offset="0" stop-color="#e9e6df" stop-opacity="0.75"/><stop offset="1" stop-color="#e9e6df" stop-opacity="0"/></radialGradient>
+                    </defs>
+                    <rect width="748" height="400" fill="url(#bd-ph-l)"/>
+                    <circle cx="186" cy="196" r="50" fill="#141414" opacity="0.88"/>
+                    <path d="M62 400 C 70 300 120 262 186 260 C 252 262 300 300 310 400 Z" fill="#141414" opacity="0.88"/>
+                    <rect x="366" y="250" width="6" height="150" fill="#141414"/>
+                    <rect x="352" y="226" width="34" height="40" rx="14" fill="#141414"/>
+                    <circle cx="548" cy="168" r="62" fill="#101010"/>
+                    <path d="M396 400 C 404 290 470 244 548 242 C 628 244 690 290 700 400 Z" fill="#101010"/>
+                  </svg>
+                  <div id="bd-halftone"></div>
+                </div>
+                <div id="bd-cap" class="bd-a" data-layout-allow-occlusion="">ILLUSTRATION — THE INTERVIEW · 2026</div>
+                <div id="bd-body" class="bd-a">
+                  <div class="bd-col"><div class="bd-gap" style="top: 64px; width: 46%;"></div><div class="bd-gap" style="top: 160px; width: 30%;"></div></div>
+                  <div class="bd-col"><div class="bd-gap" style="top: 32px; width: 58%;"></div><div class="bd-gap" style="top: 208px; width: 40%;"></div></div>
+                  <div class="bd-col"><div class="bd-gap" style="top: 112px; width: 64%;"></div><div class="bd-gap" style="top: 224px; width: 22%;"></div></div>
+                </div>
+                <div id="bd-stamp-rot" data-layout-allow-occlusion="">
+                  <div id="bd-stamp"><div class="s1">RECEIVED</div><div class="s2">15 OCT 2026</div></div>
+                </div>
+              </div>
+
+              <div id="bd-card" class="bd-item">
+                <div id="bd-card-margin"></div>
+                <div id="bd-pred"></div>
+                <div id="bd-num">2029</div>
+                <svg id="bd-num-circle" viewBox="0 0 640 340" preserveAspectRatio="none">
+                  <path id="bd-num-circle-p" d="M520 34 C 410 6, 150 10, 66 62 C 4 104, 14 236, 130 290 C 260 344, 520 330, 598 262 C 656 210, 630 96, 470 36 C 420 20, 360 16, 330 18" fill="none" stroke="#d8321d" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+                </svg>
+                <div id="bd-card-foot">all jobs replaced?</div>
+                <div id="bd-card-note">sirf 3 saal!</div>
+              </div>
+
+              <svg id="bd-threads" viewBox="0 0 2400 3600">
+                <path id="bd-th1" d="" fill="none" stroke="rgba(232, 228, 220, 0.5)" stroke-width="3"/>
+                <path id="bd-th2" d="" fill="none" stroke="rgba(232, 228, 220, 0.42)" stroke-width="3"/>
+                <path id="bd-string-sh" d="" fill="none" stroke="rgba(0, 0, 0, 0.45)" stroke-width="6" stroke-linecap="round"/>
+                <path id="bd-string" d="" fill="none" stroke="#d8321d" stroke-width="6" stroke-linecap="round"/>
+              </svg>
+
+              <div id="bd-pin-case" class="bd-pin steel"></div>
+              <div id="bd-pin-p1" class="bd-pin steel"></div>
+              <div id="bd-pin-p2" class="bd-pin steel"></div>
+              <div id="bd-pin-chart" class="bd-pin steel"></div>
+              <div id="bd-pin-clip" class="bd-pin steel"></div>
+              <div id="bd-pin-a" class="bd-pin red"></div>
+              <div id="bd-pin-b" class="bd-pin red"></div>
+            </div>
+          </div>
+        </div>
+        <div id="bd-vig" data-layout-allow-occlusion=""></div>
+      </div>
+
+      <script>
+        (function () {
+          // Board-local time: this clip starts at 6.53 s on the root timeline.
+          var T0 = 6.53;
+          function L(g) { return g - T0; }
+
+          // Item boxes (world px) mirroring the CSS above; rotation is about each box centre.
+          var BOX = {
+            clip: { left: 250, top: 360, w: 860, h: 1180, deg: -2.5 },
+            card: { left: 700, top: 2250, w: 1000, h: 620, deg: 2 },
+            p1: { left: 1270, top: 270, w: 560, h: 690, deg: 4 },
+            p2: { left: 1460, top: 1300, w: 540, h: 670, deg: -5 },
+            kase: { left: 300, top: 150, w: 820, h: 96, deg: -1.5 },
+            chart: { left: 190, top: 1720, w: 620, h: 480, deg: -3 }
+          };
+          function at(b, lx, ly) {
+            var a = b.deg * Math.PI / 180, dx = lx - b.w / 2, dy = ly - b.h / 2;
+            return { x: b.left + b.w / 2 + dx * Math.cos(a) - dy * Math.sin(a), y: b.top + b.h / 2 + dx * Math.sin(a) + dy * Math.cos(a) };
+          }
+          function place(id, p) { var el = document.getElementById(id); el.style.left = p.x.toFixed(1) + "px"; el.style.top = p.y.toFixed(1) + "px"; }
+
+          var PIN_A = at(BOX.clip, 676, 376);
+          var PIN_B = at(BOX.card, 500, 34);
+          var P_CASE = at(BOX.kase, 46, 48);
+          var P_P1 = at(BOX.p1, 280, 24);
+          var P_P2 = at(BOX.p2, 270, 24);
+          var P_CHART = at(BOX.chart, 310, 26);
+          var P_CLIP = at(BOX.clip, 430, 22);
+          place("bd-pin-a", PIN_A); place("bd-pin-b", PIN_B); place("bd-pin-case", P_CASE);
+          place("bd-pin-p1", P_P1); place("bd-pin-p2", P_P2); place("bd-pin-chart", P_CHART); place("bd-pin-clip", P_CLIP);
+
+          // camera targets (world)
+          var HEAD = at(BOX.clip, 430, 300);
+          var DECK = at(BOX.clip, 430, 420);
+          var NUM = at(BOX.card, 500, 318);
+
+          function sag(a, b, s) {
+            var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2 + s;
+            return "M" + a.x.toFixed(1) + " " + a.y.toFixed(1) + " Q" + mx.toFixed(1) + " " + my.toFixed(1) + " " + b.x.toFixed(1) + " " + b.y.toFixed(1);
+          }
+          document.getElementById("bd-th1").setAttribute("d", sag(P_CASE, P_P1, 90));
+          document.getElementById("bd-th2").setAttribute("d", sag(P_P2, P_CHART, 120));
+
+          var dStr = "M" + PIN_A.x.toFixed(1) + " " + PIN_A.y.toFixed(1) +
+            " C" + (PIN_A.x + 330).toFixed(1) + " " + (PIN_A.y + 640).toFixed(1) +
+            " " + (PIN_B.x + 280).toFixed(1) + " " + (PIN_B.y - 760).toFixed(1) +
+            " " + PIN_B.x.toFixed(1) + " " + PIN_B.y.toFixed(1);
+          var str = document.getElementById("bd-string");
+          var strSh = document.getElementById("bd-string-sh");
+          str.setAttribute("d", dStr);
+          strSh.setAttribute("d", dStr);
+          strSh.setAttribute("transform", "translate(7 11)");
+          var LEN = str.getTotalLength();
+          var N = 120, PTS = [];
+          for (var i = 0; i <= N; i++) { var q = str.getPointAtLength(LEN * i / N); PTS.push({ x: q.x, y: q.y }); }
+          function tip(p) {
+            var f = Math.max(0, Math.min(1, p)) * N, i0 = Math.floor(f), i1 = Math.min(N, i0 + 1), k = f - i0;
+            return { x: PTS[i0].x + (PTS[i1].x - PTS[i0].x) * k, y: PTS[i0].y + (PTS[i1].y - PTS[i0].y) * k };
+          }
+          [str, strSh].forEach(function (el) { el.style.strokeDasharray = LEN.toFixed(1) + " " + (LEN + 10).toFixed(1); el.style.strokeDashoffset = LEN.toFixed(1); });
+
+          // typed line on the card
+          var pred = document.getElementById("bd-pred");
+          var PRED = "PREDICTION —";
+          PRED.split("").forEach(function (ch, i) {
+            var s = document.createElement("span");
+            s.id = "bd-pc" + i; s.className = "bd-pc"; s.textContent = ch; s.style.opacity = "0";
+            pred.appendChild(s);
+          });
+
+          // hand-drawn marks
+          function prepDraw(id) {
+            var p = document.getElementById(id), l = p.getTotalLength();
+            p.style.strokeDasharray = l.toFixed(1) + " " + (l + 10).toFixed(1);
+            p.style.strokeDashoffset = l.toFixed(1);
+            return l;
+          }
+          var IVL = prepDraw("bd-ivbox-p");
+          var NCL = prepDraw("bd-num-circle-p");
+
+          var tl = gsap.timeline({ paused: true });
+          function pan(c) { return { x: -c.x, y: -c.y }; }
+
+          // ---- camera: establishing drift while the shutter reopens ----
+          var C0 = { x: 1080, y: 1260 }, C1 = { x: 930, y: 1060 };
+          tl.fromTo("#bd-pan", pan(C0), Object.assign(pan(C1), { duration: L(7.42) - L(6.53), ease: "sine.inOut", immediateRender: true }), 0);
+          tl.fromTo("#bd-zoom", { scale: 0.56, rotation: -2.2 }, { scale: 0.68, rotation: -1.2, duration: L(7.42), ease: "sine.inOut", immediateRender: true }, 0);
+
+          // ---- push into the headline (lands on "Elon") ----
+          tl.fromTo("#bd-pan", pan(C1), Object.assign(pan(HEAD), { duration: 0.5, ease: "power3.inOut", immediateRender: false }), L(7.42));
+          tl.fromTo("#bd-zoom", { scale: 0.68, rotation: -1.2 }, { scale: 1.3, rotation: -0.4, duration: 0.5, ease: "power3.inOut", immediateRender: false }, L(7.42));
+          tl.fromTo("#bd-zoom", { scale: 1.3 }, { scale: 1.37, duration: 0.5, ease: "sine.out", immediateRender: false }, L(7.92));
+          // photo "develops" with the flash
+          tl.fromTo("#bd-photo svg", { opacity: 0.15 }, { opacity: 1, duration: 0.35, ease: "power2.out", immediateRender: true }, L(7.9));
+          // date stamp hits
+          tl.fromTo("#bd-stamp", { opacity: 0, scale: 1.35 }, { opacity: 0.92, scale: 1, duration: 0.12, ease: "power2.in", immediateRender: true }, L(8.2));
+
+          // ---- tilt down to the deck, box "INTERVIEW" ----
+          tl.fromTo("#bd-pan", pan(HEAD), Object.assign(pan(DECK), { duration: 0.4, ease: "power2.inOut", immediateRender: false }), L(8.44));
+          tl.fromTo("#bd-zoom", { scale: 1.37 }, { scale: 1.28, duration: 0.4, ease: "power2.inOut", immediateRender: false }, L(8.44));
+          tl.fromTo("#bd-ivbox-p", { strokeDashoffset: IVL }, { strokeDashoffset: 0, duration: 0.32, ease: "power2.out", immediateRender: false }, L(8.62));
+          tl.fromTo("#bd-pin-a", { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.16, ease: "power2.in", immediateRender: true }, L(8.88));
+
+          // ---- red string draws INTERVIEW -> 2029, camera rides the tip ----
+          var proxy = { p: 0 };
+          var OFF = { x: DECK.x - PIN_A.x, y: DECK.y - PIN_A.y };
+          var END = { x: PIN_B.x, y: PIN_B.y + 140 };
+          tl.fromTo(proxy, { p: 0 }, {
+            p: 1, duration: 1.25, ease: "power2.inOut", immediateRender: false,
+            onUpdate: function () {
+              var p = proxy.p, t = tip(p), off = 1 - p;
+              var o = LEN * (1 - p);
+              str.style.strokeDashoffset = o.toFixed(1);
+              strSh.style.strokeDashoffset = o.toFixed(1);
+              gsap.set("#bd-pan", { x: -(t.x + OFF.x * off + (END.x - PIN_B.x) * p), y: -(t.y + OFF.y * off + (END.y - PIN_B.y) * p) });
+            }
+          }, L(9.0));
+          tl.fromTo("#bd-zoom", { scale: 1.28 }, { scale: 0.74, duration: 0.62, ease: "power2.inOut", immediateRender: false }, L(9.0));
+          tl.fromTo("#bd-zoom", { scale: 0.74 }, { scale: 1.08, duration: 0.63, ease: "power2.inOut", immediateRender: false }, L(9.62));
+          tl.fromTo("#bd-zoom", { rotation: -0.4 }, { rotation: 1.1, duration: 1.25, ease: "sine.inOut", immediateRender: false }, L(9.0));
+
+          // ---- the 2029 card ----
+          PRED.split("").forEach(function (ch, i) { tl.set("#bd-pc" + i, { opacity: 1 }, L(10.02) + i * 0.03); });
+          tl.fromTo("#bd-pan", pan(END), Object.assign(pan(NUM), { duration: 0.65, ease: "sine.inOut", immediateRender: false }), L(10.25));
+          tl.fromTo("#bd-zoom", { scale: 1.08, rotation: 1.1 }, { scale: 1.2, rotation: 0.7, duration: 0.65, ease: "sine.inOut", immediateRender: false }, L(10.25));
+          tl.fromTo("#bd-num-circle-p", { strokeDashoffset: NCL }, { strokeDashoffset: 0, duration: 0.36, ease: "power2.out", immediateRender: false }, L(10.46));
+
+          // handwritten note on the card, written on after the circle
+          tl.fromTo("#bd-card-note", { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.34, ease: "sine.inOut", immediateRender: true }, L(10.56));
+
+          // ---- crash push into "2029" (flash in the root covers the cut) ----
+          tl.fromTo("#bd-zoom", { scale: 1.2, rotation: 0.7 }, { scale: 5.2, rotation: 0, duration: 0.63, ease: "power3.in", immediateRender: false }, L(10.9));
+
+          window.__timelines["board"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

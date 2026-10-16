@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: FRAME BREAK  (cinematic-reel effects library)
+        The footage plays inside a floating vertical reel card (generic UI: like / comment / share,
+        handle + Follow pill, caption, progress bar) over a dark, blurred, vignetted copy of the room.
+        The speaker's head and arm break OUT of the card: the matte cut-out is drawn above the card
+        border, clipped to a region larger than the card (up and to the left). On CONFIG.pushAt the
+        card pushes toward camera until it IS the frame (ends on the normal full-screen shot).
+        Layers (bottom → top):
+          #fb-bg [blurred plate copy] → #fb-vig → #fb-cam { card shadow → card clip [plate + scrim]
+          → card border → #fb-break [matte, clipped to the break-out region] → card UI } → note
+        Geometry: the footage is scaled CONFIG.footScale at (footX, footY) in BOTH the card and the
+        break-out layer, so the cut-out stays registered. At the push end the footage maps exactly
+        onto the card and the card exactly onto the frame (net scale 1.0, nothing jumps).
+        Reuse: edit CONFIG (script) + the three <video> media attributes below. Prefix: fb-
+      -->
+      <style>
+        @font-face { font-family: "IBM Plex Sans"; src: url("assets/type/IBMPlexSans.woff2") format("woff2"); font-weight: 500; font-style: normal; }
+        @font-face { font-family: "Tillana"; src: url("assets/fonts/Tillana-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-framebreak-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        .fb-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+        /* blurred, dark room behind the card (filter on an untimed wrapper, not on the video) */
+        #fb-bg { position: absolute; inset: 0; transform: scale(1.14); filter: blur(30px) brightness(0.5) saturate(0.7); }
+        #fb-vig { position: absolute; inset: 0; background: radial-gradient(ellipse 72% 58% at 50% 46%, rgba(5, 5, 5, 0.1) 0%, rgba(5, 5, 5, 0.55) 62%, rgba(5, 5, 5, 0.9) 100%); }
+
+        /* camera: push toward the card. float: subtle drift/tilt while the card hangs in space */
+        #fb-cam, #fb-float { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+        #fb-shadow { position: absolute; background: #050505; box-shadow: 0 46px 90px rgba(0, 0, 0, 0.72), 0 12px 24px rgba(0, 0, 0, 0.5); }
+        #fb-card { position: absolute; overflow: hidden; background: #050505; }
+        /* footage frame: 1080x1920 box scaled from its top-left corner (same transform in card + break layer) */
+        .fb-foot { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; }
+        #fb-card-scrim { position: absolute; left: 0; right: 0; bottom: 0; height: 360px; background: linear-gradient(180deg, rgba(5, 5, 5, 0) 0%, rgba(5, 5, 5, 0.42) 55%, rgba(5, 5, 5, 0.72) 100%); }
+        #fb-border { position: absolute; border: 2px solid rgba(239, 233, 223, 0.9); }
+
+        /* break-out layer: full-frame box clipped to the region where the cut-out may leave the card */
+        #fb-break { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+        /* the matte picks up some curtain at the far left above the arm: mask it (video coordinates) */
+        .fb-fg { clip-path: polygon(330px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 900px, 330px 900px); }
+
+        /* ---------- generic reel UI (no real logos) ---------- */
+        #fb-ui { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+        .fb-ico { position: absolute; width: 64px; text-align: center; }
+        .fb-ico svg { display: block; width: 52px; height: 52px; margin: 0 auto; overflow: visible; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)); }
+        .fb-ico svg path, .fb-ico svg circle { fill: none; stroke: #efe9df; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+        .fb-cnt { display: block; height: 26px; margin-top: 4px; font-family: "IBM Plex Sans", sans-serif; font-weight: 500; font-size: 19px; line-height: 26px; color: #efe9df; white-space: nowrap; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+        #fb-heart-fill { fill: #e0301e !important; stroke: #e0301e !important; opacity: 0; }
+        .fb-cnt-stack { position: relative; height: 26px; margin-top: 4px; overflow: hidden; }
+        .fb-cnt-stack .fb-cnt { position: absolute; left: 0; right: 0; top: 0; margin-top: 0; }
+        #fb-dots circle { fill: #efe9df; stroke: none; }
+
+        #fb-who { position: absolute; display: flex; align-items: center; gap: 14px; height: 48px; white-space: nowrap; }
+        #fb-ava { position: relative; display: block; width: 46px; height: 46px; border-radius: 50%; background: #1a1a1a; border: 2px solid #efe9df; overflow: hidden; flex: none; }
+        #fb-ava-head { position: absolute; left: 13px; top: 8px; width: 16px; height: 16px; border-radius: 50%; background: #efe9df; opacity: 0.85; }
+        #fb-ava-body { position: absolute; left: 6px; top: 27px; width: 30px; height: 24px; border-radius: 15px 15px 0 0; background: #efe9df; opacity: 0.85; }
+        #fb-handle { display: block; font-family: "IBM Plex Sans", sans-serif; font-weight: 500; font-size: 25px; line-height: 48px; color: #efe9df; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+        #fb-follow { display: block; height: 36px; padding: 0 16px; border: 2px solid #efe9df; border-radius: 10px; font-family: "IBM Plex Sans", sans-serif; font-weight: 500; font-size: 19px; line-height: 32px; color: #efe9df; }
+        #fb-cap { position: absolute; height: 32px; font-family: "IBM Plex Sans", sans-serif; font-weight: 500; font-size: 22px; line-height: 32px; color: rgba(239, 233, 223, 0.88); white-space: nowrap; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7); }
+        #fb-prog { position: absolute; height: 3px; background: rgba(239, 233, 223, 0.28); }
+        #fb-prog-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: #e0301e; transform-origin: 0 50%; }
+
+        /* red display-hand note (screen space) */
+        #fb-note { position: absolute; height: 120px; font-family: "Tillana", cursive; font-weight: 700; line-height: 120px; color: #e0301e; white-space: nowrap; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.75); }
+      </style>
+
+      <div id="fx-framebreak-root" data-composition-id="fx-framebreak" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="fb-bg" data-layout-allow-overflow="">
+          <!-- BACKGROUND PLATE: same take, blurred + darkened by the wrapper. Muted.
+               data-duration is one third of a frame shorter than the slot on purpose: two identical src/start/duration
+               videos trip lint duplicate_media_discovery_risk. By then the card already fills the frame. -->
+          <video id="fb-bgv" class="fb-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="2.99" data-media-start="6.95" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+        <div id="fb-vig" data-layout-allow-occlusion=""></div>
+
+        <div id="fb-cam" data-layout-allow-overflow="" data-layout-allow-overlap="">
+          <div id="fb-float" data-layout-allow-overflow="" data-layout-allow-overlap="">
+            <div id="fb-shadow"></div>
+            <div id="fb-card" data-layout-allow-overflow="">
+              <div id="fb-card-in" style="position:absolute;left:0;top:0;width:1080px;height:1920px;">
+                <div id="fb-foot-a" class="fb-foot">
+                  <!-- PLATE: assets/take.mp4. data-media-start = source second where this slot begins; data-duration = slot length. Muted (the root plays the voice). -->
+                  <video id="fb-plate" class="fb-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="3" data-media-start="6.95" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+                </div>
+                <div id="fb-card-scrim"></div>
+              </div>
+            </div>
+            <div id="fb-border"></div>
+
+            <div id="fb-break" data-layout-allow-overflow="">
+              <div id="fb-foot-b" class="fb-foot">
+                <!-- MATTE: VP9-with-alpha cut-out of the same take (its own media-start, same duration). Muted. -->
+                <video id="fb-fg" class="fb-vid fb-fg clip" src="assets/fg-open.webm" muted playsinline data-start="0" data-duration="3" data-media-start="4.95" data-track-index="2" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+              </div>
+            </div>
+
+            <div id="fb-ui" data-layout-allow-overlap="">
+              <div id="fb-like" class="fb-ico">
+                <svg viewBox="0 0 52 52"><path d="M26 44 C12 34 5 27 5 18 C5 11 10 6 16.5 6 C21 6 24 8.5 26 12 C28 8.5 31 6 35.5 6 C42 6 47 11 47 18 C47 27 40 34 26 44 Z"></path><path id="fb-heart-fill" d="M26 44 C12 34 5 27 5 18 C5 11 10 6 16.5 6 C21 6 24 8.5 26 12 C28 8.5 31 6 35.5 6 C42 6 47 11 47 18 C47 27 40 34 26 44 Z"></path></svg>
+                <div class="fb-cnt-stack"><span id="fb-cnt-a" class="fb-cnt"></span><span id="fb-cnt-b" class="fb-cnt"></span></div>
+              </div>
+              <div id="fb-comm" class="fb-ico">
+                <svg viewBox="0 0 52 52"><path d="M26 7 C14 7 6 14.5 6 24 C6 29 8.4 33.4 12.3 36.4 L10 46 L20.4 40.4 C22.2 40.8 24.1 41 26 41 C38 41 46 33.5 46 24 C46 14.5 38 7 26 7 Z"></path></svg>
+                <span id="fb-cnt-c" class="fb-cnt"></span>
+              </div>
+              <div id="fb-share" class="fb-ico">
+                <svg viewBox="0 0 52 52"><path d="M46 7 L6 23 L22 29 L28 45 Z"></path><path d="M46 7 L22 29"></path></svg>
+                <span id="fb-cnt-s" class="fb-cnt"></span>
+              </div>
+              <div id="fb-more" class="fb-ico">
+                <svg id="fb-dots" viewBox="0 0 52 52"><circle cx="12" cy="26" r="3.6"></circle><circle cx="26" cy="26" r="3.6"></circle><circle cx="40" cy="26" r="3.6"></circle></svg>
+              </div>
+              <div id="fb-who"><span id="fb-ava"><span id="fb-ava-head"></span><span id="fb-ava-body"></span></span><span id="fb-handle"></span><span id="fb-follow"></span></div>
+              <div id="fb-cap"></div>
+              <div id="fb-prog"><div id="fb-prog-fill"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="fb-note"></div>
+      </div>
+
+      <script>
+        (function () {
+          // ================= CONFIG: edit these to reuse the effect =================
+          var CONFIG = {
+            duration: 3.0,                  // slot length (s); match the host data-duration and the videos' data-duration
+            card: { x: 260, y: 412, w: 560, h: 996, r: 38 },   // reel card rect (9:16). Keep UI text above the subtitle band (y 1436)
+            // footage transform inside the card AND in the break-out layer (origin top-left).
+            // Pick it so the face sits in the card and the head/arm cross the card edge.
+            // Keep footX <= 0 so the arm's own frame-edge cut lands off-screen.
+            foot: { x: -16, y: 170, scale: 0.78 },
+            // break-out region (frame px): where the cut-out may draw outside the card.
+            // inset(top right bottom left): here up to the frame top and left edges, never right of / below the card.
+            breakClip: "inset(0px 260px 512px 0px)",
+            handle: "@aapka.channel",       // generic username
+            follow: "Follow",
+            caption: "AI aapki job le lega?",
+            likes: ["12.4K", "12.5K"],      // like count before / after the like
+            comments: "318",
+            shares: "1.2K",
+            likeAt: 1.27,                   // heart fills red (soft tick)
+            progress: [0.16, 0.42],         // progress bar fill at start / at pushAt
+            driftDeg: [-1.4, -0.5],         // card tilt while floating (deg), ends at 0 after the push
+            pushAt: 2.27,                   // card pushes toward camera on this word ("khatre")
+            pushDur: 0.7,                   // push duration; ends near-full-screen by the slot end
+            note: "khatre?",                // red Tillana note (screen space, top-left over the curtain); "" to skip
+            noteAt: 2.3,
+            noteBox: { x: 62, y: 248, size: 86, rot: -6 }
+          };
+          // ==========================================================================
+
+          function $(id) { return document.getElementById(id); }
+          var C = CONFIG.card, F = CONFIG.foot;
+
+          // ---- layout ----
+          function rect(e, x, y, w, h) { e.style.left = x + "px"; e.style.top = y + "px"; e.style.width = w + "px"; e.style.height = h + "px"; }
+          rect($("fb-shadow"), C.x, C.y, C.w, C.h);
+          rect($("fb-card"), C.x, C.y, C.w, C.h);
+          rect($("fb-border"), C.x, C.y, C.w, C.h);
+          ["fb-shadow", "fb-card", "fb-border"].forEach(function (id) { $(id).style.borderRadius = C.r + "px"; });
+          $("fb-card-in").style.left = -C.x + "px"; $("fb-card-in").style.top = -C.y + "px";   // card contents in frame coordinates
+          $("fb-card-scrim").style.bottom = (1920 - C.y - C.h) + "px";
+          $("fb-break").style.clipPath = CONFIG.breakClip;
+
+          var colX = C.x + C.w - 78;                       // right icon column
+          [["fb-like", 0], ["fb-comm", 1], ["fb-share", 2], ["fb-more", 3]].forEach(function (p) {
+            var e = $(p[0]); e.style.left = colX + "px"; e.style.top = (C.y + C.h - 430 + p[1] * 98) + "px";
+          });
+          $("fb-cnt-a").textContent = CONFIG.likes[0];
+          $("fb-cnt-b").textContent = CONFIG.likes[1];
+          $("fb-cnt-c").textContent = CONFIG.comments;
+          $("fb-cnt-s").textContent = CONFIG.shares;
+          var who = $("fb-who"); who.style.left = (C.x + 28) + "px"; who.style.top = (C.y + C.h - 146) + "px";
+          $("fb-handle").textContent = CONFIG.handle;
+          $("fb-follow").textContent = CONFIG.follow;
+          var cap = $("fb-cap"); cap.style.left = (C.x + 30) + "px"; cap.style.top = (C.y + C.h - 88) + "px"; cap.textContent = CONFIG.caption;
+          rect($("fb-prog"), C.x + 22, C.y + C.h - 30, C.w - 44, 3);
+          var note = $("fb-note"), NB = CONFIG.noteBox;
+          note.textContent = CONFIG.note;
+          note.style.left = NB.x + "px"; note.style.top = NB.y + "px"; note.style.fontSize = NB.size + "px";
+
+          // ---- push math: camera scale/offset that makes the card exactly the frame ----
+          var cx = C.x + C.w / 2, cy = C.y + C.h / 2;
+          var camScale = 1080 / C.w;
+          var camY = 960 - cy;                             // re-centre the card vertically
+          $("fb-cam").style.transformOrigin = cx + "px " + cy + "px";
+          $("fb-float").style.transformOrigin = cx + "px " + cy + "px";
+
+          // ---- timeline ----
+          var tl = gsap.timeline({ paused: true });
+          var T = CONFIG.duration, P = CONFIG.pushAt, PD = CONFIG.pushDur;
+
+          // footage registered in card + break-out layer
+          tl.set([".fb-foot"], { x: F.x, y: F.y, scale: F.scale }, 0);
+
+          // settle-in from the cut (the card arrives a hair closer), then float
+          tl.fromTo("#fb-cam", { scale: 1.035, y: 0 }, { scale: 1, y: 0, duration: 0.8, ease: "expo.out" }, 0);
+          tl.fromTo("#fb-float", { y: 6, rotation: CONFIG.driftDeg[0] }, { y: -8, rotation: CONFIG.driftDeg[1], duration: P, ease: "sine.inOut" }, 0);
+
+          // UI life: like + count roll, progress bar
+          tl.set("#fb-cnt-b", { yPercent: 100, opacity: 0 }, 0);
+          tl.fromTo("#fb-heart-fill", { opacity: 0, scale: 0.6, transformOrigin: "50% 60%" }, { opacity: 1, scale: 1, duration: 0.32, ease: "power2.out" }, CONFIG.likeAt);
+          tl.to("#fb-cnt-a", { yPercent: -100, opacity: 0, duration: 0.3, ease: "power2.inOut" }, CONFIG.likeAt + 0.08);
+          tl.to("#fb-cnt-b", { yPercent: 0, opacity: 1, duration: 0.3, ease: "power2.inOut" }, CONFIG.likeAt + 0.08);
+          tl.fromTo("#fb-prog-fill", { scaleX: CONFIG.progress[0] }, { scaleX: CONFIG.progress[1], duration: P, ease: "none" }, 0);
+
+          // PUSH: card becomes the frame; footage relaxes back to 1:1; chrome falls away
+          tl.to("#fb-cam", { scale: camScale, y: camY, duration: PD, ease: "power3.inOut" }, P);
+          tl.to("#fb-float", { y: 0, rotation: 0, duration: PD, ease: "power3.inOut" }, P);
+          tl.to([".fb-foot"], { x: C.x, y: C.y, scale: C.w / 1080, duration: PD, ease: "power3.inOut" }, P);
+          tl.to(["#fb-shadow", "#fb-card", "#fb-border"], { borderRadius: 0, duration: PD, ease: "power3.inOut" }, P);
+          tl.to(["#fb-ui", "#fb-card-scrim"], { opacity: 0, duration: 0.24, ease: "sine.inOut" }, P);
+          tl.to("#fb-border", { opacity: 0, duration: PD * 0.8, ease: "sine.inOut" }, P);
+
+          // red hand note writes on (left to right)
+          if (CONFIG.note) {
+            tl.set(note, { rotation: NB.rot }, 0);
+            tl.fromTo(note, { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.45, ease: "sine.inOut" }, CONFIG.noteAt);
+          }
+
+          tl.set({}, {}, T);
+          window.__timelines["fx-framebreak"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

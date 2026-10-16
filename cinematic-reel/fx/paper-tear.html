@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: PAPER TEAR (transition overlay that straddles a hard cut)
+        A board-paper sheet slides down over the outgoing shot and covers the frame at the cut. Then a
+        tear runs down it (white fibre core along a jagged edge), the two halves hinge open from the top
+        and pull away left and right with a lift shadow, revealing the incoming shot.
+        Reuse: place this slot so CONFIG.coverAt lands exactly on the root hard cut. Edit CONFIG only.
+        No footage, no audio. Everything is deterministic (seeded hash for the torn edge).
+      -->
+      <style>
+        @font-face { font-family: "Special Elite"; src: url("assets/type/SpecialElite.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+
+        #fx-tear-root { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        /* sheets are oversized by 50 px each side so no edge shows while rotating */
+        .pt-sheet { position: absolute; left: -50px; top: -50px; width: 1180px; height: 2020px; }
+        .pt-paper {
+          position: absolute; inset: 0;
+          background-color: #dedbd3; background-image: url("assets/tex/paper.png"); background-size: 600px 600px;
+          background-blend-mode: multiply;
+        }
+        /* the exposed fibre core of a torn sheet: lighter, slightly warm white */
+        .pt-core { position: absolute; inset: 0; background-color: #f4f1ea; background-image: url("assets/tex/paper.png"); background-size: 300px 300px; background-blend-mode: multiply; }
+        .pt-core-wrap { position: absolute; inset: 0; }
+        /* soft paper fold shading so the sheet is not a flat card */
+        .pt-shade { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0) 22%, rgba(255, 255, 255, 0.05) 52%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.14) 100%); }
+        .pt-type { position: absolute; left: 0; width: 1180px; text-align: center; color: #1c1c1c; white-space: nowrap; }
+        .pt-t1 { top: 948px; font-family: "Special Elite", monospace; font-size: 46px; line-height: 60px; letter-spacing: 0.14em; }
+        .pt-t2 { top: 1024px; font-family: "IBM Plex Mono", monospace; font-size: 22px; line-height: 30px; letter-spacing: 0.24em; opacity: 0.7; }
+        .pt-rule { position: absolute; left: 340px; width: 500px; top: 1012px; height: 3px; background: rgba(196, 48, 30, 0.85); }
+
+        #pt-drop { position: absolute; inset: 0; filter: drop-shadow(0 26px 34px rgba(0, 0, 0, 0.55)); }
+        .pt-half { position: absolute; inset: 0; filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.5)); opacity: 0; }
+        /* left half sits on top so its wider white core shows over the right face while the tear runs */
+        #pt-left { transform-origin: -50px 1970px; z-index: 2; }
+        #pt-right { transform-origin: 1130px 1970px; z-index: 1; }
+      </style>
+
+      <div id="fx-tear-root" data-composition-id="fx-tear" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <!-- the intact sheet that slides in and covers the cut -->
+        <div id="pt-drop" data-layout-allow-overflow="">
+          <div id="pt-whole" class="pt-sheet"></div>
+        </div>
+        <!-- the two torn halves (same sheet face, clipped along the seeded torn edge) -->
+        <div id="pt-left" class="pt-half" data-layout-allow-overflow="">
+          <div class="pt-sheet">
+            <div id="pt-left-corewrap" class="pt-core-wrap"><div id="pt-left-core" class="pt-core"></div></div>
+            <div id="pt-left-face" class="pt-face-host"></div>
+          </div>
+        </div>
+        <div id="pt-right" class="pt-half" data-layout-allow-overflow="">
+          <div class="pt-sheet">
+            <div id="pt-right-corewrap" class="pt-core-wrap"><div id="pt-right-core" class="pt-core"></div></div>
+            <div id="pt-right-face" class="pt-face-host"></div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          // =====================================================================
+          // CONFIG: everything a reuse needs to change. Times are LOCAL (0 = slot start).
+          // =====================================================================
+          var CONFIG = {
+            duration: 1.0,          // slot length (s); host data-duration
+            dropDur: 0.42,          // sheet slides down from above and fully covers by this time
+            coverAt: 0.44,          // = root hard cut (outgoing shot ends under the sheet)
+            tearAt: 0.5,            // swap to the torn halves; fibre line runs top -> bottom
+            tearRun: 0.12,          // time the tear takes to run down the sheet
+            openAt: 0.56,           // halves start to hinge open from the top
+            awayAt: 0.6,            // halves start to pull away sideways (power2.in)
+            endAt: 1.0,             // both halves fully off frame
+            seed: 0x2f6a91,         // torn-edge seed: change for a different tear shape
+            edgeTop: 640,           // tear x at the top of the sheet (sheet px, sheet is 1180 wide)
+            edgeBottom: 470,        // tear x at the bottom of the sheet
+            jag: 26,                // big jaggedness amplitude (px)
+            fibre: 6,               // fine fibre jitter (px)
+            coreLeft: [5, 13],      // white core width range on the left half (px)
+            coreRight: [2, 6],      // white core width range on the right half (px)
+            openDeg: [-7, 6],       // final hinge angle of left / right half (deg)
+            awayX: [-1300, 1300],   // final x offset of left / right half (px)
+            line1: "— CONTINUED —",  // typed line printed across the tear line
+            line2: "CASE FILE 05 · PAGE 2"
+          };
+
+          // ---------- sheet face (one template, cloned into the intact sheet and both halves) ----------
+          function buildFace(host) {
+            var p = document.createElement("div"); p.className = "pt-paper"; host.appendChild(p);
+            var s = document.createElement("div"); s.className = "pt-shade"; host.appendChild(s);
+            var a = document.createElement("div"); a.className = "pt-type pt-t1"; a.textContent = CONFIG.line1; host.appendChild(a);
+            var r = document.createElement("div"); r.className = "pt-rule"; host.appendChild(r);
+            var b = document.createElement("div"); b.className = "pt-type pt-t2"; b.textContent = CONFIG.line2; host.appendChild(b);
+          }
+          buildFace(document.getElementById("pt-whole"));
+          buildFace(document.getElementById("pt-left-face"));
+          buildFace(document.getElementById("pt-right-face"));
+          ["pt-left-face", "pt-right-face"].forEach(function (id) { var el = document.getElementById(id); el.style.position = "absolute"; el.style.inset = "0"; });
+
+          // ---------- seeded torn edge ----------
+          var seed = CONFIG.seed >>> 0;
+          function rnd() { seed = (Math.imul(1664525, seed) + 1013904223) >>> 0; return seed / 4294967296; }
+          var H = 2020, STEP = 12, N = Math.ceil(H / STEP) + 1;
+          // smooth value noise for the big jag (knots every ~84 px), plus per-point fibre jitter
+          var KN = Math.ceil(H / 84) + 2, knots = [];
+          for (var k = 0; k < KN; k++) knots.push(rnd() * 2 - 1);
+          function big(y) {
+            var f = y / 84, i = Math.floor(f), u = f - i, w = u * u * (3 - 2 * u);
+            return knots[i] + (knots[i + 1] - knots[i]) * w;
+          }
+          var edge = [];
+          for (var n = 0; n < N; n++) {
+            var y = Math.min(H + 30, n * STEP - 30 + (n > 0 ? (rnd() - 0.5) * 6 : 0));
+            var base = CONFIG.edgeTop + (CONFIG.edgeBottom - CONFIG.edgeTop) * (y / H);
+            edge.push({ x: base + big(y + 30) * CONFIG.jag + (rnd() - 0.5) * 2 * CONFIG.fibre, y: y });
+          }
+          function poly(points) { return "polygon(" + points.map(function (p) { return p.x.toFixed(1) + "px " + p.y.toFixed(1) + "px"; }).join(", ") + ")"; }
+          function offsetEdge(dir, range) {
+            return edge.map(function (p) { return { x: p.x + dir * (range[0] + rnd() * (range[1] - range[0])), y: p.y }; });
+          }
+          var L = [{ x: -400, y: -60 }].concat(edge, [{ x: -400, y: H + 60 }]);
+          var R = [{ x: 1600, y: -60 }].concat(edge, [{ x: 1600, y: H + 60 }]);
+          var Lcore = [{ x: -400, y: -60 }].concat(offsetEdge(1, CONFIG.coreLeft), [{ x: -400, y: H + 60 }]);
+          var Rcore = [{ x: 1600, y: -60 }].concat(offsetEdge(-1, CONFIG.coreRight), [{ x: 1600, y: H + 60 }]);
+          document.getElementById("pt-left-face").style.clipPath = poly(L);
+          document.getElementById("pt-right-face").style.clipPath = poly(R);
+          document.getElementById("pt-left-core").style.clipPath = poly(Lcore);
+          document.getElementById("pt-right-core").style.clipPath = poly(Rcore);
+
+          // ---------- timeline ----------
+          var tl = gsap.timeline({ paused: true });
+          // 1) the sheet slides down over the frame (calm inOut, no slam), a touch of rotation settling to 0
+          tl.fromTo("#pt-drop", { y: -2080, rotation: -2.2 }, { y: 0, rotation: 0, duration: CONFIG.dropDur, ease: "power3.inOut", immediateRender: true }, 0);
+          // 2) at the tear: swap the intact sheet for the two halves (identical at rest)
+          tl.set("#pt-drop", { opacity: 1 }, 0);
+          tl.set("#pt-drop", { opacity: 0 }, CONFIG.tearAt);
+          tl.set(["#pt-left", "#pt-right"], { opacity: 0 }, 0);
+          tl.set(["#pt-left", "#pt-right"], { opacity: 1 }, CONFIG.tearAt);
+          // 3) the fibre core runs down the tear line (clip reveal top -> bottom)
+          tl.fromTo(["#pt-left-corewrap", "#pt-right-corewrap"], { clipPath: "inset(0px 0px 100% 0px)" }, { clipPath: "inset(0px 0px 0% 0px)", duration: CONFIG.tearRun, ease: "power1.in", immediateRender: true }, CONFIG.tearAt);
+          // 4) halves hinge open from the top (gap opens at the top first, like a real tear)
+          tl.fromTo("#pt-left", { rotation: 0 }, { rotation: CONFIG.openDeg[0], duration: CONFIG.endAt - CONFIG.openAt, ease: "power1.in", immediateRender: true }, CONFIG.openAt);
+          tl.fromTo("#pt-right", { rotation: 0 }, { rotation: CONFIG.openDeg[1], duration: CONFIG.endAt - CONFIG.openAt, ease: "power1.in", immediateRender: true }, CONFIG.openAt);
+          // 5) and pull away sideways, accelerating out of frame
+          tl.fromTo("#pt-left", { x: 0, y: 0 }, { x: CONFIG.awayX[0], y: 40, duration: CONFIG.endAt - CONFIG.awayAt, ease: "power2.in", immediateRender: true }, CONFIG.awayAt);
+          tl.fromTo("#pt-right", { x: 0, y: 0 }, { x: CONFIG.awayX[1], y: 60, duration: CONFIG.endAt - CONFIG.awayAt, ease: "power2.in", immediateRender: true }, CONFIG.awayAt);
+          tl.set(["#pt-left", "#pt-right"], { opacity: 0 }, CONFIG.endAt - 0.001);
+
+          window.__timelines["fx-tear"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

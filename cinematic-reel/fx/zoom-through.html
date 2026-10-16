@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: ZOOM-THROUGH CUT — cinematic-reel effects library
+        A transition overlay that straddles a hard cut. Shot A pushes into a red end dot
+        (fx/chart-grow exit push); this overlay grows that dot into a red ring PORTAL that
+        flies past the lens. Inside the ring we already see shot B (a still of its first
+        frame, already moving toward us); outside is ink. At the cut, shot B takes over live
+        underneath, the ring keeps growing past the frame edge and shot B eases out of its
+        own entry push (fx/vertigo entry). One continuous forward move, no flash.
+
+        Layers: #zt-next (shot B preview inside the hole, until the cut) -> #zt-ink (ink with a
+        round hole, after the cut) -> #zt-hair (faint film-white trailing ring) -> #zt-ring.
+        Reuse: edit CONFIG (centres, cut time, shot-B transforms) + the two preview images.
+      -->
+      <style>
+        #fx-zoomthrough-root { position: absolute; inset: 0; overflow: hidden; }
+        #zt-next, #zt-ncam, #zt-nroom, #zt-nsubj { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+        .zt-img { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+        #zt-ink { position: absolute; inset: 0; background: #050505; opacity: 0; }
+        #zt-ring, #zt-hair { position: absolute; left: 0; top: 0; width: 10px; height: 10px; border-radius: 50%; border-style: solid; }
+        #zt-ring { border-color: #e0301e; }
+        #zt-hair { border-color: rgba(239, 233, 223, 0.32); }
+      </style>
+      <div id="fx-zoomthrough-root" data-composition-id="fx-zoomthrough" data-width="1080" data-height="1920">
+        <!-- shot B preview, seen through the ring before the cut. MUST match shot B's first frame:
+             here fx/vertigo at local 0 (clean plate at dolly.from, cut-out shifted by subjectY). -->
+        <div id="zt-next" data-layout-allow-overflow="">
+          <div id="zt-ncam" data-layout-allow-overflow="">
+            <div id="zt-nroom" data-layout-allow-overflow="">
+              <!-- MEDIA: shot B room (vertigo clean plate) -->
+              <img id="zt-nroom-img" class="zt-img" src="assets/fx/vertigo/clean-plate.jpg" alt="" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}">
+            </div>
+            <div id="zt-nsubj" data-layout-allow-overflow="">
+              <!-- MEDIA: shot B cut-out, first frame of the matte (ffmpeg -c:v libvpx-vp9 -i bh1-fg.webm -frames:v 1 -pix_fmt rgba subject-f0.png) -->
+              <img id="zt-nsubj-img" class="zt-img" src="assets/fx/zoom-through/subject-f0.png" alt="" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}">
+            </div>
+          </div>
+        </div>
+        <div id="zt-ink"></div>
+        <div id="zt-hair"></div>
+        <div id="zt-ring"></div>
+      </div>
+      <script>
+        (function () {
+          // ======================= CONFIG (edit this to reuse) =======================
+          var CONFIG = {
+            duration: 0.9,                  // slot length (s); keep equal to the host data-duration
+            cut: 0.4,                       // local time of the hard cut A -> B (root 9.26 - slot start 8.86)
+            from: { x: 1000, y: 323.2, r: 24 }, // shot A's end dot: centre + ring radius (= chart-grow END point, ring r 24)
+            to: { x: 600, y: 760 },         // where the portal drifts while it grows: shot B's focus (vertigo CONFIG.focus)
+            rEnd: 2150,                     // final ring radius: must clear the farthest frame corner from the path
+            ringDur: 0.8,                   // ring growth time; it is off-frame after this
+            ringWidth: [3, 0.04],           // border = a + b * r (px): thickens as it passes the lens
+            inkOpacity: 0.94,               // outside the hole after the cut (match chart-grow CONFIG.push.veil)
+            // shot B preview (before the cut) = vertigo's own first-frame transforms:
+            next: {
+              camFrom: 1.62, camTo: 1.22,   // camera scale over 0 -> cut; camTo = vertigo CONFIG.entry.from
+              roomScale: 1.62,              // = vertigo CONFIG.dolly.from
+              subjectY: 200,                // = vertigo CONFIG.subjectY (the room is shifted by it too)
+              tableY: 1635,                 // = vertigo CONFIG.tableY (room scale pivot)
+              focus: { x: 600, y: 760 }     // = vertigo CONFIG.focus
+            }
+          };
+          // ===========================================================================
+
+          var N = CONFIG.next, fo = N.focus.x + "px " + N.focus.y + "px";
+          gsap.set("#zt-ncam", { transformOrigin: fo });
+          gsap.set("#zt-nroom", { y: N.subjectY, scale: N.roomScale, transformOrigin: N.focus.x + "px " + N.tableY + "px" });
+          gsap.set("#zt-nsubj", { y: N.subjectY });
+
+          var next = document.getElementById("zt-next"), ink = document.getElementById("zt-ink");
+          var ring = document.getElementById("zt-ring"), hair = document.getElementById("zt-hair");
+          var st = { u: 0 };
+          function portal() {
+            var u = st.u;
+            var r = CONFIG.from.r + (CONFIG.rEnd - CONFIG.from.r) * u * u * u;             // power3.in growth
+            var c = u * u;                                                                  // power2.in drift
+            var x = CONFIG.from.x + (CONFIG.to.x - CONFIG.from.x) * c;
+            var y = CONFIG.from.y + (CONFIG.to.y - CONFIG.from.y) * c;
+            var bw = CONFIG.ringWidth[0] + CONFIG.ringWidth[1] * r;
+            var circle = "circle(" + r.toFixed(1) + "px at " + x.toFixed(1) + "px " + y.toFixed(1) + "px)";
+            next.style.clipPath = circle;
+            var m = "radial-gradient(circle " + r.toFixed(1) + "px at " + x.toFixed(1) + "px " + y.toFixed(1) + "px, transparent " + (r - 1).toFixed(1) + "px, #000 " + (r + 0.5).toFixed(1) + "px)";
+            ink.style.webkitMaskImage = m; ink.style.maskImage = m;
+            ring.style.left = (x - r - bw).toFixed(1) + "px"; ring.style.top = (y - r - bw).toFixed(1) + "px";
+            ring.style.width = ring.style.height = (2 * (r + bw)).toFixed(1) + "px";
+            ring.style.borderWidth = bw.toFixed(1) + "px";
+            ring.style.boxShadow = "0 0 " + (bw * 2.2).toFixed(1) + "px rgba(224,48,30,0.7), inset 0 0 " + (bw * 1.6).toFixed(1) + "px rgba(224,48,30,0.45)";
+            var hr = r * 1.14 + 10, hw = 1.5 + r * 0.004;
+            hair.style.left = (x - hr - hw).toFixed(1) + "px"; hair.style.top = (y - hr - hw).toFixed(1) + "px";
+            hair.style.width = hair.style.height = (2 * (hr + hw)).toFixed(1) + "px";
+            hair.style.borderWidth = hw.toFixed(1) + "px";
+            hair.style.opacity = (u < 0.06 ? u / 0.06 : 1 - Math.min(1, (u - 0.06) / 0.6)).toFixed(3);
+          }
+          portal();
+
+          var tl = gsap.timeline({ paused: true });
+          tl.fromTo(st, { u: 0 }, { u: 1, duration: CONFIG.ringDur, ease: "none", immediateRender: true, onUpdate: portal }, 0);
+          // shot B preview moves toward us until the cut, then the live shot takes over underneath
+          tl.fromTo("#zt-ncam", { scale: N.camFrom }, { scale: N.camTo, duration: CONFIG.cut, ease: "none", immediateRender: true }, 0);
+          tl.set(next, { opacity: 1 }, 0);
+          tl.set(next, { opacity: 0 }, CONFIG.cut);
+          tl.set(ink, { opacity: 0 }, 0);
+          tl.set(ink, { opacity: CONFIG.inkOpacity }, CONFIG.cut);
+          tl.set([ink, ring, hair], { opacity: 0 }, CONFIG.ringDur);
+          window.__timelines["fx-zoomthrough"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

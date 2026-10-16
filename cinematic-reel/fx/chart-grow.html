@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: CHART GROW (cinematic-reel effects library)
+        A documentary line chart drawn on the wall BEHIND the speaker's head. The room dims,
+        a hairline grid wipes in, the red line climbs to a glowing end dot with a "2029 ->"
+        pill, and the cut-out stays in front. Optional exit: the camera pushes into the end
+        dot (pairs with fx/zoom-through.html, which flies through that dot into the next shot).
+
+        Layer order inside #cg-cam (the camera, pushed at the end):
+          plate video -> #cg-dim (room dim) -> #cg-grid / #cg-area / #cg-line (behind head)
+          -> matte video .take-fg (speaker cut-out) -> #cg-front (pill, always readable)
+        Reuse: edit CONFIG + the two <video> media attributes (marked MEDIA below).
+      -->
+      <style>
+        #fx-chart-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        #cg-cam { position: absolute; inset: 0; }
+        .cg-take { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* the matte picks up curtain on the left of frame: mask it out above the shoulders */
+        #cg-fg { clip-path: polygon(330px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 1080px, 330px 1080px); }
+        /* room dim: the wall is cream, so film-white hairlines need a darker wall to read */
+        #cg-dim { position: absolute; inset: 0; opacity: 0;
+          background: radial-gradient(ellipse 80% 50% at 62% 30%, rgba(8, 9, 10, 0.62) 0%, rgba(5, 5, 5, 0.84) 100%);
+          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 960px, transparent 1240px);
+          mask-image: linear-gradient(180deg, #000 0, #000 960px, transparent 1240px); }
+        .cg-layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+        .cg-mono { position: absolute; font-family: "IBM Plex Mono", monospace; font-weight: 500; color: #efe9df; white-space: nowrap; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55); }
+        .cg-year { font-size: 24px; letter-spacing: 0.12em; line-height: 30px; width: 120px; text-align: center; opacity: 0.78; }
+        .cg-tick { font-size: 20px; letter-spacing: 0.08em; line-height: 24px; width: 64px; text-align: right; opacity: 0.6; }
+        #cg-ylabel { left: 0; top: 0; font-size: 20px; letter-spacing: 0.24em; line-height: 24px; opacity: 0.72; transform-origin: 0 0; }
+        #cg-tag { display: flex; align-items: center; gap: 14px; font-size: 24px; letter-spacing: 0.22em; line-height: 30px; }
+        .cg-sq { display: block; width: 14px; height: 14px; background: #e0301e; flex: none; }
+        #cg-tip, #cg-glow, #cg-pulse { position: absolute; left: 0; top: 0; border-radius: 50%; }
+        #cg-tip { width: 22px; height: 22px; margin: -11px 0 0 -11px; background: #e0301e; box-shadow: 0 0 0 4px rgba(239, 233, 223, 0.92), 0 0 22px 6px rgba(224, 48, 30, 0.75); }
+        #cg-glow { width: 150px; height: 150px; margin: -75px 0 0 -75px; background: radial-gradient(circle, rgba(224, 48, 30, 0.55) 0%, rgba(224, 48, 30, 0.18) 38%, rgba(224, 48, 30, 0) 70%); opacity: 0; }
+        #cg-pulse { width: 48px; height: 48px; margin: -24px 0 0 -24px; border: 2px solid #e0301e; opacity: 0; }
+        #cg-pill { position: absolute; display: flex; align-items: center; gap: 12px; height: 54px; padding: 0 22px 0 24px; border: 2px solid #e0301e; border-radius: 27px; background: rgba(5, 5, 5, 0.88); box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 18px rgba(224, 48, 30, 0.25);
+          font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 28px; letter-spacing: 0.16em; line-height: 54px; color: #efe9df; white-space: nowrap; }
+        #cg-pill svg { display: block; width: 24px; height: 24px; overflow: visible; }
+        #cg-leader { position: absolute; width: 2px; background: #e0301e; transform-origin: 50% 0; }
+        #cg-veil { position: absolute; inset: 0; background: #050505; opacity: 0; }
+      </style>
+      <div id="fx-chart-root" data-composition-id="fx-chart" data-width="1080" data-height="1920">
+        <div id="cg-cam" data-layout-allow-overflow="">
+          <!-- MEDIA plate: take.mp4, muted (the root plays the voice). data-media-start = source second at slot start; data-duration = slot duration. -->
+          <video id="cg-plate" class="clip take cg-take" src="assets/take.mp4" muted playsinline data-start="0" data-duration="2.55" data-media-start="16.15" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+          <div id="cg-dim"></div>
+          <!-- behind-head chart layers (filled by the script from CONFIG) -->
+          <div id="cg-grid" class="cg-layer"></div>
+          <div id="cg-area" class="cg-layer"></div>
+          <div id="cg-line" class="cg-layer"></div>
+          <!-- MEDIA matte: VP9-with-alpha cut-out of the same take, muted. Same timing as the plate; data-media-start = matte second matching the plate's start. -->
+          <video id="cg-fg" class="clip take-fg cg-take" src="assets/fg-open.webm" muted playsinline data-start="0" data-duration="2.55" data-media-start="14.15" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+          <!-- foreground: the pill always reads, even if it grazes the hair -->
+          <div id="cg-front" class="cg-layer">
+            <div id="cg-leader"></div>
+            <div id="cg-pill"><span id="cg-pill-t"></span><svg viewBox="0 0 24 24"><path d="M5 19 L19 5 M8 5 H19 V16" fill="none" stroke="#e0301e" stroke-width="3" stroke-linecap="square"/></svg></div>
+          </div>
+        </div>
+        <div id="cg-veil"></div>
+      </div>
+      <script>
+        (function () {
+          // ======================= CONFIG (edit this to reuse) =======================
+          var CONFIG = {
+            duration: 2.55,                    // slot length (s); keep equal to the host data-duration
+            // chart box on the wall, in frame px. Keep it clear of the HUD band (y 100-170).
+            plot: { x0: 110, x1: 1000, yTop: 250, yBottom: 860 },
+            years: ["2023", "2024", "2025", "2026", "2027", "2028", "2029"], // x labels, along the top
+            values: [3, 5, 8, 12, 19, 34, 88], // 0-100 per year. Keep the steep climb in the LAST segment,
+                                               // which lands in the free wall right of the head.
+            yTicks: [0, 50, 100],              // tick labels on the left axis
+            yLabel: "JOBS REPLACED %",         // vertical axis label
+            tag: "PROJECTION",                 // small mono tag under the chart (red square + text)
+            tagPos: { x: 110, y: 900 },
+            pill: "2029",                      // end-point pill text (an up-right arrow is drawn after it)
+            pillPos: { right: 1048, top: 384 },// pill anchor: right edge x and top y (frame px)
+            red: "#e0301e",                    // the one accent
+            film: "#efe9df",                   // hairlines and type
+            // cues, local seconds (0 = slot start)
+            t: {
+              dimIn: 0.0,        // room starts to dim
+              gridIn: 0.08,      // grid + labels wipe in left -> right
+              tagIn: 0.4,        // "PROJECTION" types on
+              drawStart: 0.56,   // red line starts ("all" 0.63)
+              land: 1.59,        // line reaches the end dot ("replaced" 1.59)
+              pillIn: 1.62,      // pill wipes out of the dot
+              pushStart: 2.15,   // camera pushes into the end dot (exit into fx/zoom-through)
+            },
+            push: { to: 4.2, blur: 7, veil: 0.94 }, // exit push: end scale, blur px, ink veil (match zoom-through CONFIG.inkOpacity)
+            exitPush: true                     // false = no push (hold the chart to the end)
+          };
+          // ===========================================================================
+
+          var SVGNS = "http://www.w3.org/2000/svg";
+          var P = CONFIG.plot, n = CONFIG.years.length;
+          function X(i) { return P.x0 + (P.x1 - P.x0) * i / (n - 1); }
+          function Y(v) { return P.yBottom - (P.yBottom - P.yTop) * v / 100; }
+          var pts = CONFIG.values.map(function (v, i) { return [X(i), Y(v)]; });
+          var END = pts[n - 1];
+
+          function svg(host) {
+            var s = document.createElementNS(SVGNS, "svg");
+            s.setAttribute("width", "1080"); s.setAttribute("height", "1920");
+            s.setAttribute("viewBox", "0 0 1080 1920");
+            s.style.position = "absolute"; s.style.left = "0"; s.style.top = "0"; s.style.overflow = "visible";
+            document.getElementById(host).appendChild(s);
+            return s;
+          }
+          function el(parent, tag, attrs) {
+            var e = document.createElementNS(SVGNS, tag);
+            for (var k in attrs) e.setAttribute(k, attrs[k]);
+            parent.appendChild(e); return e;
+          }
+          function div(host, cls, id, text, css) {
+            var d = document.createElement("div");
+            d.className = cls; if (id) d.id = id; if (text != null) d.textContent = text;
+            for (var k in css) d.style[k] = css[k];
+            document.getElementById(host).appendChild(d); return d;
+          }
+
+          // ---- grid: hairlines, years along the top, ticks + vertical label on the left ----
+          var g = svg("cg-grid");
+          [0, 25, 50, 75, 100].forEach(function (v) {
+            el(g, "line", { x1: P.x0, x2: P.x1 + 30, y1: Y(v), y2: Y(v), stroke: CONFIG.film, "stroke-width": v === 0 ? 2 : 1.5, "stroke-opacity": v === 0 ? 0.62 : 0.3 });
+          });
+          for (var i = 0; i < n; i++) {
+            el(g, "line", { x1: X(i), x2: X(i), y1: P.yTop - 10, y2: P.yBottom, stroke: CONFIG.film, "stroke-width": 1.5, "stroke-opacity": 0.34, "stroke-dasharray": "2 9" });
+            div("cg-grid", "cg-mono cg-year", null, CONFIG.years[i], { left: (X(i) - 60) + "px", top: (P.yTop - 62) + "px" });
+          }
+          CONFIG.yTicks.forEach(function (v) {
+            div("cg-grid", "cg-mono cg-tick", null, String(v), { left: (P.x0 - 76) + "px", top: (Y(v) - 12) + "px" });
+          });
+          var yl = div("cg-grid", "cg-mono", "cg-ylabel", CONFIG.yLabel, {});
+          gsap.set(yl, { x: P.x0 - 84, y: (P.yTop + P.yBottom) / 2 + 110, rotation: -90 });
+          var tag = div("cg-grid", "cg-mono", "cg-tag", null, { left: CONFIG.tagPos.x + "px", top: CONFIG.tagPos.y + "px" });
+          var sq = document.createElement("span"); sq.className = "cg-sq"; tag.appendChild(sq);
+          var tagTxt = document.createElement("span"); tag.appendChild(tagTxt);  // one flex item: the gap stays between square and text
+          var tagChars = CONFIG.tag.split("").map(function (ch, k) {
+            var s = document.createElement("span"); s.id = "cg-tc" + k; s.textContent = ch; s.style.opacity = "0"; tagTxt.appendChild(s); return s;
+          });
+
+          // ---- the line: Catmull-Rom through the points, as cubic Beziers ----
+          var d = "M" + pts[0][0].toFixed(1) + " " + pts[0][1].toFixed(1);
+          for (var k = 0; k < n - 1; k++) {
+            var p0 = pts[Math.max(k - 1, 0)], p1 = pts[k], p2 = pts[k + 1], p3 = pts[Math.min(k + 2, n - 1)];
+            var c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+            var c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+            d += " C" + c1[0].toFixed(1) + " " + c1[1].toFixed(1) + " " + c2[0].toFixed(1) + " " + c2[1].toFixed(1) + " " + p2[0].toFixed(1) + " " + p2[1].toFixed(1);
+          }
+          var a = svg("cg-area");
+          el(a, "path", { d: d + " L" + END[0] + " " + P.yBottom + " L" + P.x0 + " " + P.yBottom + " Z", fill: CONFIG.red, "fill-opacity": 0.13 });
+          var ls = svg("cg-line");
+          var glowPath = el(ls, "path", { d: d, fill: "none", stroke: CONFIG.red, "stroke-width": 14, "stroke-opacity": 0.22, "stroke-linecap": "round", "stroke-linejoin": "round" });
+          var line = el(ls, "path", { d: d, fill: "none", stroke: CONFIG.red, "stroke-width": 7, "stroke-linecap": "round", "stroke-linejoin": "round" });
+          var ring = el(ls, "circle", { cx: END[0], cy: END[1], r: 24, fill: "none", stroke: CONFIG.red, "stroke-width": 3 });
+          var L = line.getTotalLength(), RL = 2 * Math.PI * 24;
+          [line, glowPath].forEach(function (p) { p.style.strokeDasharray = L.toFixed(1) + " " + (L + 20).toFixed(1); });
+          ring.style.strokeDasharray = RL.toFixed(1) + " " + (RL + 10).toFixed(1);
+          var glow = div("cg-line", "", "cg-glow", null, { left: END[0] + "px", top: END[1] + "px" });
+          var pulse = div("cg-line", "", "cg-pulse", null, { left: END[0] + "px", top: END[1] + "px" });
+          var tip = div("cg-line", "", "cg-tip", null, {});
+
+          // ---- pill + leader (foreground) ----
+          document.getElementById("cg-pill-t").textContent = CONFIG.pill;
+          var pill = document.getElementById("cg-pill");
+          pill.style.right = (1080 - CONFIG.pillPos.right) + "px"; pill.style.top = CONFIG.pillPos.top + "px";
+          var leader = document.getElementById("cg-leader");
+          leader.style.left = (END[0] - 1) + "px"; leader.style.top = (END[1] + 26) + "px";
+          leader.style.height = Math.max(CONFIG.pillPos.top - END[1] - 26, 0) + "px";
+
+          // ================================ timeline ================================
+          var T = CONFIG.t;
+          var tl = gsap.timeline({ paused: true });
+          tl.fromTo("#cg-dim", { opacity: 0 }, { opacity: 1, duration: 0.55, ease: "sine.inOut", immediateRender: true }, T.dimIn);
+          tl.fromTo("#cg-grid", { clipPath: "inset(-4% 100% -4% 0%)" }, { clipPath: "inset(-4% -4% -4% 0%)", duration: 0.7, ease: "power2.inOut", immediateRender: true }, T.gridIn);
+          tagChars.forEach(function (s, k) { tl.set(s, { opacity: 1 }, T.tagIn + k * 0.035); });
+          tl.fromTo(sq, { opacity: 0 }, { opacity: 1, duration: 0.01, immediateRender: true }, T.tagIn - 0.02);
+
+          // line draw: one proxy drives the stroke, the area reveal and the travelling tip
+          var prog = { p: 0 };
+          function drawAt(p) {
+            var len = L * p, pt = line.getPointAtLength(len);
+            line.style.strokeDashoffset = (L - len).toFixed(1);
+            glowPath.style.strokeDashoffset = (L - len).toFixed(1);
+            document.getElementById("cg-area").style.clipPath = "inset(0px " + (1080 - pt.x).toFixed(1) + "px 0px 0px)";
+            tip.style.transform = "translate(" + pt.x.toFixed(1) + "px," + pt.y.toFixed(1) + "px)";
+            tip.style.opacity = p > 0.001 ? "1" : "0";
+          }
+          drawAt(0);
+          tl.fromTo(prog, { p: 0 }, { p: 1, duration: T.land - T.drawStart, ease: "sine.inOut", immediateRender: true, onUpdate: function () { drawAt(prog.p); } }, T.drawStart);
+
+          // landing: ring closes around the tip, soft bloom, one slow pulse
+          tl.fromTo(ring, { strokeDashoffset: RL + 4 }, { strokeDashoffset: 0, duration: 0.32, ease: "power2.out", immediateRender: true }, T.land - 0.04);
+          tl.fromTo(glow, { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out", immediateRender: true }, T.land - 0.02);
+          tl.fromTo(pulse, { opacity: 0.75, scale: 1 }, { opacity: 0, scale: 3.2, duration: 0.75, ease: "sine.out", immediateRender: false }, T.land);
+          tl.set(pulse, { opacity: 0 }, 0);
+          tl.fromTo(leader, { scaleY: 0 }, { scaleY: 1, duration: 0.18, ease: "power2.out", immediateRender: true }, T.pillIn - 0.04);
+          tl.fromTo(pill, { clipPath: "inset(-30% -10% -30% 100%)" }, { clipPath: "inset(-30% -10% -30% -10%)", duration: 0.36, ease: "power2.out", immediateRender: true }, T.pillIn);
+
+          // exit: push into the end dot (fx/zoom-through takes over the ring at pushStart)
+          if (CONFIG.exitPush) {
+            gsap.set("#cg-cam", { transformOrigin: END[0] + "px " + END[1] + "px" });
+            tl.set(ring, { opacity: 0 }, T.pushStart);
+            tl.fromTo("#cg-cam", { scale: 1, filter: "blur(0px)" }, { scale: CONFIG.push.to, filter: "blur(" + CONFIG.push.blur + "px)", duration: CONFIG.duration - T.pushStart, ease: "power3.in", immediateRender: true }, T.pushStart);
+            tl.fromTo("#cg-veil", { opacity: 0 }, { opacity: CONFIG.push.veil, duration: CONFIG.duration - T.pushStart, ease: "power2.in", immediateRender: true }, T.pushStart);
+          }
+          window.__timelines["fx-chart"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

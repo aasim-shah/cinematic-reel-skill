@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: ORBIT  (cinematic-reel effects library)
+        Paper index cards orbit the speaker's head on a tilted 3D ellipse.
+        Layers (bottom → top):
+          plate video → room dim → BACK card layer + back half of the orbit ring
+          → matte cut-out (.ob-fg) → FRONT card layer + front half of the ring → hand note.
+        Every card exists twice (back copy + front copy). Each frame the driver computes the
+        card's angle; the copy whose side it is on shows, the other is hidden. The swap happens
+        at the far left/right of the ellipse, where no card overlaps the head, so it is invisible.
+        Reuse: edit CONFIG (script) + the two <video> media attributes below. Prefix: ob-
+      -->
+      <style>
+        @font-face { font-family: "Special Elite"; src: url("assets/type/SpecialElite.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Tillana"; src: url("assets/fonts/Tillana-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-orbit-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+        /* untimed camera wrapper: animate this, never the timed videos */
+        #ob-cam { position: absolute; inset: 0; transform-origin: 56% 30%; }
+        .ob-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* the matte picks up curtain on the left of frame: mask it out */
+        .ob-fg { clip-path: polygon(330px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 1080px, 330px 1080px); }
+        /* room dims a touch so the cards and the cut-out separate from the wall */
+        #ob-dim { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse 62% 40% at 56% 24%, rgba(5, 5, 5, 0.1) 0%, rgba(5, 5, 5, 0.46) 100%);
+          /* fade the dim out above y 1080 so it never meets the matte's lower-left strip (no visible box edge) */
+          -webkit-mask-image: linear-gradient(180deg, #000 0, #000 760px, transparent 1040px); mask-image: linear-gradient(180deg, #000 0, #000 760px, transparent 1040px); }
+
+        .ob-layer { position: absolute; inset: 0; }
+        .ob-ring { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+        .ob-ring path { fill: none; }
+        .ob-trace { stroke: #efe9df; stroke-width: 3; stroke-dasharray: 2 14; stroke-linecap: round; opacity: 0; }
+        .ob-red { stroke: #e0301e; stroke-width: 6; stroke-linecap: round; filter: drop-shadow(0 0 10px rgba(224, 48, 30, 0.55)); }
+
+        /* index card: paper + ruled lines + red margin, typed question */
+        .ob-pos { position: absolute; left: 0; top: 0; }
+        .ob-card {
+          position: relative; padding: 18px 28px 22px; white-space: nowrap; color: #151515;
+          background-color: #ebe9e3;
+          background-image: repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) 40px, rgba(70, 80, 90, 0.2) 40px, rgba(70, 80, 90, 0.2) 42px), url("assets/tex/paper.png");
+          background-position: 0 58px, 0 0; background-size: 100% 100%, 600px 600px; background-repeat: no-repeat, repeat;
+          background-blend-mode: normal, multiply;
+          box-shadow: 0 26px 44px rgba(0, 0, 0, 0.55), 0 6px 12px rgba(0, 0, 0, 0.4);
+        }
+        .ob-tag { display: flex; align-items: center; gap: 10px; height: 30px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 17px; letter-spacing: 0.2em; color: #3a3a38; }
+        .ob-tag i { display: block; width: 12px; height: 12px; background: #c4301e; }
+        .ob-rule { height: 3px; margin: 6px 0 14px; background: rgba(196, 48, 30, 0.82); }
+        .ob-q { font-family: "Special Elite", monospace; font-size: 40px; line-height: 50px; letter-spacing: 0.03em; }
+        /* back copies sit in shade */
+        #ob-back .ob-card { filter: brightness(0.72); }
+
+        /* hand note (Tillana, red) + hand arrow */
+        #ob-note { position: absolute; left: 58px; top: 600px; height: 120px; font-family: "Tillana", cursive; font-weight: 700; font-size: 96px; line-height: 120px; color: #e0301e; white-space: nowrap; text-shadow: 0 2px 14px rgba(0, 0, 0, 0.7); transform: rotate(-8deg); }
+        #ob-arrow { position: absolute; left: 196px; top: 716px; width: 170px; height: 120px; overflow: visible; }
+        #ob-arrow path { fill: none; stroke: #e0301e; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6)); }
+      </style>
+
+      <div id="fx-orbit-root" data-composition-id="fx-orbit" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="ob-cam" data-layout-allow-overflow="">
+          <!-- PLATE: assets/take.mp4. data-media-start = source second where this slot begins; data-duration = slot length. Muted (the root plays the voice). -->
+          <video id="ob-plate" class="ob-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="2.7" data-media-start="111.9" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+          <div id="ob-dim" data-layout-allow-occlusion=""></div>
+
+          <!-- BACK layer: cards and ring half that pass behind the head -->
+          <div id="ob-back" class="ob-layer" data-layout-allow-overflow="" data-layout-allow-overlap="">
+            <svg class="ob-ring" viewBox="0 0 1080 1920"><path id="ob-trace-b" class="ob-trace"></path><path id="ob-red-b" class="ob-red" pathLength="1"></path></svg>
+          </div>
+
+          <!-- MATTE: VP9-with-alpha cut-out of the same take, same timing as the plate (its own media-start). Muted. -->
+          <video id="ob-fg" class="ob-vid ob-fg clip" src="assets/bh2-fg.webm" muted playsinline data-start="0" data-duration="2.7" data-media-start="0" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+
+          <!-- FRONT layer: cards and ring half that pass in front of the face -->
+          <div id="ob-front" class="ob-layer" data-layout-allow-overflow="" data-layout-allow-overlap="">
+            <svg class="ob-ring" viewBox="0 0 1080 1920"><path id="ob-trace-f" class="ob-trace"></path><path id="ob-red-f" class="ob-red" pathLength="1"></path></svg>
+          </div>
+        </div>
+
+        <div id="ob-note"></div>
+        <svg id="ob-arrow" viewBox="0 0 170 120"><path id="ob-arrow-p" pathLength="1" d="M8 10 C 46 58, 92 84, 150 92 M 124 70 L 152 92 L 120 108"></path></svg>
+      </div>
+
+      <script>
+        (function () {
+          /* ================= CONFIG: everything a reuse needs to change ================= */
+          var CONFIG = {
+            duration: 2.7,                               // slot length (s) = data-duration of the host slot
+            cards: [                                     // one entry per orbiting card (3–4 reads best)
+              { tag: "Q.01", text: "KAUN SA KAAM?" },
+              { tag: "Q.02", text: "KAISE?" },
+              { tag: "Q.03", text: "KIS LEVEL?" }
+            ],
+            center: { x: 588, y: 336 },                  // orbit centre in px (head/forehead centre, from the footage)
+            radius: { x: 330, y: 92 },                   // ellipse radii: x = sideways reach, y = 3D depth squash
+            tilt: -11,                                   // ellipse roll in degrees (negative = right side higher)
+            scaleFront: 0.88,                            // card scale when nearest the camera
+            scaleBack: 0.6,                              // card scale when furthest away
+            yawMax: 34,                                  // max card turn (rotationY) at the sides, degrees
+            orbitPeriod: 2.35,                           // seconds per full orbit at cruise speed
+            slowAt: 1.6,                                 // local time the orbit starts slowing (just before the key word)
+            slowEnd: 2.0,                                // local time it reaches the slow speed
+            slowFactor: 0.2,                             // slow speed as a fraction of cruise speed
+            settleCard: 0,                               // card index that ends near front centre
+            settleAngle: -0.42,                          // its angle at the end (0 = front centre, rad; negative = arriving from the left)
+            fadeIn: 0.45,                                // cards + dotted trace fade in over this (s)
+            keyAt: 1.78,                                 // the key word ("aap"): red ring draws + hand note writes
+            note: "aap!",                                // red Tillana hand note text
+            push: { from: 1.0, to: 1.04 }                // slow camera push over the slot (stay ≤ 1.04 with words near the top)
+          };
+          /* ============================================================================ */
+
+          var tl = gsap.timeline({ paused: true });
+          var root = document.getElementById("fx-orbit-root");
+          var DEG = Math.PI / 180;
+          var cosT = Math.cos(CONFIG.tilt * DEG), sinT = Math.sin(CONFIG.tilt * DEG);
+
+          // point on the tilted ellipse for angle a (a = 0 is front centre, z = depth: +1 front, -1 back)
+          function orbitPoint(a) {
+            var ex = CONFIG.radius.x * Math.sin(a), ey = CONFIG.radius.y * Math.cos(a);
+            return { x: CONFIG.center.x + ex * cosT - ey * sinT, y: CONFIG.center.y + ex * sinT + ey * cosT, z: Math.cos(a) };
+          }
+          // orbit angle as a pure function of local time: cruise, then a smooth slow-down (integral of a smoothstep speed curve)
+          var w0 = (2 * Math.PI) / CONFIG.orbitPeriod, w1 = w0 * CONFIG.slowFactor;
+          function theta(t) {
+            var a = CONFIG.slowAt, b = CONFIG.slowEnd, L = b - a;
+            if (t <= a) return w0 * t;
+            var u = Math.min(1, (t - a) / L);
+            // ∫ smoothstep from 0..u = u^3 - u^4/2
+            var s = L * (u * u * u - 0.5 * u * u * u * u);
+            var base = w0 * a + w0 * (Math.min(t, b) - a) - (w0 - w1) * s;
+            return t > b ? base + w1 * (t - b) : base;
+          }
+          var N = CONFIG.cards.length;
+          var phase0 = CONFIG.settleAngle - theta(CONFIG.duration) - CONFIG.settleCard * (2 * Math.PI / N);
+
+          // build the two card copies
+          function makeCard(c) {
+            var pos = document.createElement("div"); pos.className = "ob-pos";
+            var card = document.createElement("div"); card.className = "ob-card";
+            var tag = document.createElement("div"); tag.className = "ob-tag";
+            var sq = document.createElement("i"); var tt = document.createElement("span"); tt.textContent = c.tag;
+            tag.appendChild(sq); tag.appendChild(tt);
+            var rule = document.createElement("div"); rule.className = "ob-rule";
+            var q = document.createElement("div"); q.className = "ob-q"; q.textContent = c.text;
+            card.appendChild(tag); card.appendChild(rule); card.appendChild(q); pos.appendChild(card);
+            return pos;
+          }
+          var back = document.getElementById("ob-back"), front = document.getElementById("ob-front");
+          var B = [], F = [];
+          CONFIG.cards.forEach(function (c) {
+            var b = makeCard(c), f = makeCard(c);
+            back.appendChild(b); front.appendChild(f); B.push(b); F.push(f);
+          });
+
+          // ring paths: sample the ellipse, split into front (z ≥ 0) and back (z < 0) halves; both run left → right
+          function arcPath(a0, a1) {
+            var d = "", steps = 72;
+            for (var i = 0; i <= steps; i++) {
+              var p = orbitPoint(a0 + (a1 - a0) * (i / steps));
+              d += (i ? " L " : "M ") + p.x.toFixed(1) + " " + p.y.toFixed(1);
+            }
+            return d;
+          }
+          var dFront = arcPath(-Math.PI / 2, Math.PI / 2), dBack = arcPath(-Math.PI / 2, -3 * Math.PI / 2);
+          ["ob-trace-f", "ob-red-f"].forEach(function (id) { document.getElementById(id).setAttribute("d", dFront); });
+          ["ob-trace-b", "ob-red-b"].forEach(function (id) { document.getElementById(id).setAttribute("d", dBack); });
+          gsap.set(["#ob-red-f", "#ob-red-b"], { attr: { "stroke-dasharray": "1 1", "stroke-dashoffset": 1 } });
+          gsap.set("#ob-arrow-p", { attr: { "stroke-dasharray": "1 1", "stroke-dashoffset": 1 } });
+          document.getElementById("ob-note").textContent = CONFIG.note;
+
+          // place every card for local time t (pure function of t: seek-safe)
+          function pose(t) {
+            var th = theta(t) + phase0;
+            var fade = Math.min(1, Math.max(0, t / CONFIG.fadeIn));
+            fade = fade * fade * (3 - 2 * fade);
+            for (var i = 0; i < N; i++) {
+              var a = th + i * (2 * Math.PI / N);
+              var p = orbitPoint(a);
+              var k = (p.z + 1) / 2;                                   // 0 back … 1 front
+              var sc = (CONFIG.scaleBack + (CONFIG.scaleFront - CONFIG.scaleBack) * k) * (0.94 + 0.06 * fade);
+              var props = {
+                x: p.x, y: p.y, xPercent: -50, yPercent: -50, scale: sc,
+                rotationY: -Math.sin(a) * CONFIG.yawMax, rotation: CONFIG.tilt * 0.6 + Math.sin(a) * 3,
+                transformPerspective: 1100
+              };
+              gsap.set(B[i], props); gsap.set(F[i], props);
+              gsap.set(F[i], { opacity: p.z >= 0 ? fade : 0 });
+              gsap.set(B[i], { opacity: p.z < 0 ? fade : 0 });
+            }
+          }
+
+          var drive = { t: 0 };
+          pose(0);
+          tl.to(drive, { t: CONFIG.duration, duration: CONFIG.duration, ease: "none", onUpdate: function () { pose(drive.t); } }, 0);
+
+          // camera push + room dim
+          tl.fromTo("#ob-cam", { scale: CONFIG.push.from }, { scale: CONFIG.push.to, duration: CONFIG.duration, ease: "power1.inOut" }, 0);
+          tl.fromTo("#ob-dim", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 0);
+
+          // dotted orbit trace: in with the cards, hands over to the red ring on the key word
+          tl.fromTo(".ob-trace", { opacity: 0 }, { opacity: 0.42, duration: CONFIG.fadeIn, ease: "sine.inOut" }, 0.05);
+          tl.to(".ob-trace", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, CONFIG.keyAt + 0.1);
+
+          // key word: red ring draws round the head (both halves together, left → right), then the hand note writes on
+          tl.to(["#ob-red-f", "#ob-red-b"], { attr: { "stroke-dashoffset": 0 }, duration: 0.36, ease: "power2.out" }, CONFIG.keyAt - 0.04);
+          tl.fromTo("#ob-note", { clipPath: "inset(-20% 100% -20% -4%)" }, { clipPath: "inset(-20% -4% -20% -4%)", duration: 0.42, ease: "sine.inOut" }, CONFIG.keyAt + 0.06);
+          tl.to("#ob-arrow-p", { attr: { "stroke-dashoffset": 0 }, duration: 0.3, ease: "power2.out" }, CONFIG.keyAt + 0.36);
+
+          window.__timelines["fx-orbit"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <!--
+        FX: COVER STORY  (cinematic-reel effects library)
+        The talking-head shot becomes a magazine cover: a giant Anton masthead sits BEHIND the
+        speaker's head, a thin film-white inset border frames the cover, and cover lines build on
+        the spoken words (kicker, Anton lines, a red "REPLACED BY AI?" banner, issue line, barcode).
+        The footage is lowered by CONFIG.footY px so the head overlaps only the lower part of the
+        masthead (the word stays readable); the gap above fades to ink like a cover photo.
+        Layers (bottom → top):
+          #cv-foot [plate] → #cv-fade (ink top fade) → #cv-back (masthead, red rule, vol line)
+          → #cv-foot-fg [matte] → #cv-front (cover lines, banner, barcode) → #cv-border
+        Reuse: edit CONFIG (script) + the two <video> media attributes below. Prefix: cv-
+      -->
+      <style>
+        @font-face { font-family: "Anton"; src: url("assets/type/Anton.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+        @font-face { font-family: "Kalam"; src: url("assets/fonts/Kalam-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+        #fx-cover-root { position: absolute; inset: 0; overflow: hidden; background: #050505; }
+
+        /* footage groups (untimed wrappers: animate these, never the timed videos).
+           Plate and matte groups always get the SAME transform so the cut-out stays registered. */
+        .cv-foot { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 50% 40%; }
+        .cv-vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        /* the matte picks up some curtain on the left: mask it (head never goes left of x 420 above y 900 here) */
+        .cv-fg { clip-path: polygon(410px 0, 1080px 0, 1080px 1920px, 0 1920px, 0 900px, 410px 900px); }
+
+        /* ink top fade: hides the lowered plate's top edge, gives the masthead a dark field */
+        #cv-fade { position: absolute; left: 0; top: 0; width: 1080px; height: 760px; background: linear-gradient(180deg, #050505 0, #050505 255px, rgba(5, 5, 5, 0.72) 420px, rgba(5, 5, 5, 0.28) 600px, rgba(5, 5, 5, 0) 760px); }
+
+        /* ---------- back layer: behind the head ---------- */
+        #cv-mast { position: absolute; left: 0; width: 1080px; text-align: center; font-family: "Anton", sans-serif; font-weight: 400; line-height: 1; color: #efe9df; white-space: nowrap; letter-spacing: 0.004em; text-shadow: 0 8px 34px rgba(0, 0, 0, 0.35); transform-origin: 50% 50%; }
+        #cv-rule { position: absolute; left: 64px; width: 952px; height: 8px; background: #e0301e; box-shadow: 0 0 22px rgba(224, 48, 30, 0.5); transform-origin: 0 50%; }
+        #cv-vol { position: absolute; left: 64px; width: 952px; height: 30px; display: flex; justify-content: space-between; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 20px; line-height: 30px; letter-spacing: 0.22em; color: #efe9df; white-space: nowrap; }
+        #cv-vol span { display: block; }
+
+        /* ---------- front layer: cover lines ---------- */
+        #cv-lines { position: absolute; left: 64px; width: 420px; height: 240px; }
+        #cv-kick { display: flex; align-items: center; gap: 14px; height: 36px; margin-bottom: 8px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 24px; letter-spacing: 0.24em; color: #efe9df; white-space: nowrap; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
+        #cv-kick-sq { display: block; width: 16px; height: 16px; background: #e0301e; flex: none; opacity: 0; }
+        #cv-kick-txt { display: flex; }
+        #cv-kick-txt span { display: block; opacity: 0; }
+        .cv-line { display: flex; gap: 22px; height: 90px; font-family: "Anton", sans-serif; font-size: 84px; line-height: 90px; color: #efe9df; white-space: nowrap; text-transform: uppercase; text-shadow: 0 4px 18px rgba(0, 0, 0, 0.55); }
+        .cv-m { display: block; overflow: hidden; height: 92px; }
+        .cv-w { display: block; }
+        .cv-red { color: #e0301e; }
+
+        /* red banner: slab wipes in, words rise inside it */
+        #cv-banner { position: absolute; left: 64px; height: 118px; }
+        #cv-slab { position: absolute; inset: 0; background: #e0301e; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45); transform-origin: 0 50%; }
+        #cv-ban-row { position: relative; display: flex; gap: 24px; height: 118px; padding: 0 30px; font-family: "Anton", sans-serif; font-size: 92px; line-height: 118px; color: #efe9df; white-space: nowrap; text-transform: uppercase; }
+        #cv-ban-row .cv-m { height: 118px; }
+
+        /* bottom furniture */
+        #cv-issue { position: absolute; left: 64px; width: 560px; height: 72px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 22px; line-height: 36px; letter-spacing: 0.22em; color: #efe9df; white-space: nowrap; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6); }
+        #cv-issue div { display: block; }
+        #cv-price { color: #e0301e; }
+        #cv-code { position: absolute; width: 176px; height: 124px; padding: 12px 14px 8px; background: #efe9df; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); }
+        #cv-bars { position: relative; width: 148px; height: 74px; }
+        .cv-bar { position: absolute; top: 0; height: 74px; background: #050505; }
+        #cv-digits { height: 22px; margin-top: 4px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 15px; line-height: 22px; letter-spacing: 0.08em; color: #050505; white-space: nowrap; text-align: center; }
+
+        /* inset border frame (over everything) */
+        #cv-border { position: absolute; border: 2px solid rgba(239, 233, 223, 0.86); }
+      </style>
+
+      <div id="fx-cover-root" data-composition-id="fx-cover" data-width="1080" data-height="1920" data-layout-allow-overflow="" data-layout-allow-overlap="">
+        <div id="cv-foot" class="cv-foot" data-layout-allow-overflow="">
+          <!-- PLATE: assets/take.mp4. data-media-start = source second where this slot begins; data-duration = slot length. Muted (the root plays the voice). -->
+          <video id="cv-plate" class="cv-vid clip" src="assets/take.mp4" muted playsinline data-start="0" data-duration="3.71" data-media-start="2.23" data-track-index="0" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+        <div id="cv-fade" data-layout-allow-occlusion=""></div>
+
+        <!-- BACK: masthead + red rule + vol line, behind the head -->
+        <div id="cv-back" data-layout-allow-overflow="" data-layout-allow-overlap="">
+          <div id="cv-mast"></div>
+          <div id="cv-rule"></div>
+          <div id="cv-vol"><span id="cv-vol-l"></span><span id="cv-vol-r"></span></div>
+        </div>
+
+        <div id="cv-foot-fg" class="cv-foot" data-layout-allow-overflow="">
+          <!-- MATTE: VP9-with-alpha cut-out of the same take (its own media-start, same duration). Muted. -->
+          <video id="cv-fg" class="cv-vid cv-fg clip" src="assets/fg-open.webm" muted playsinline data-start="0" data-duration="3.71" data-media-start="0.23" data-track-index="1" data-color-grading="{&quot;preset&quot;:null,&quot;intensity&quot;:1,&quot;adjust&quot;:{&quot;exposure&quot;:0.02,&quot;contrast&quot;:0.04,&quot;highlights&quot;:-0.14,&quot;shadows&quot;:0.08,&quot;whites&quot;:-0.02,&quot;blacks&quot;:-0.02,&quot;temperature&quot;:-0.03,&quot;tint&quot;:0,&quot;vibrance&quot;:0,&quot;saturation&quot;:-0.08},&quot;details&quot;:{&quot;vignette&quot;:0.18,&quot;vignetteMidpoint&quot;:0.5,&quot;vignetteRoundness&quot;:0,&quot;vignetteFeather&quot;:0.8,&quot;grain&quot;:0.1,&quot;grainSize&quot;:0.14,&quot;grainRoughness&quot;:0.6},&quot;effects&quot;:{&quot;blur&quot;:0,&quot;pixelate&quot;:0,&quot;chromaBleed&quot;:0,&quot;tapeDamage&quot;:0,&quot;tapeTracking&quot;:0,&quot;tapeNoise&quot;:1,&quot;tapeSpeed&quot;:0.5,&quot;filmArtifacts&quot;:0,&quot;halftone&quot;:0,&quot;halftoneSize&quot;:0,&quot;twoInkPrint&quot;:0,&quot;twoInkPrintSize&quot;:0,&quot;ascii&quot;:0,&quot;asciiSize&quot;:0.06578947368421052,&quot;asciiInvert&quot;:0,&quot;asciiStyle&quot;:0,&quot;asciiColor&quot;:1,&quot;asciiRotation&quot;:0,&quot;dither&quot;:0,&quot;ditherSize&quot;:0,&quot;bloom&quot;:0.15,&quot;bloomRadius&quot;:22,&quot;monoScreen&quot;:0,&quot;monoScreenSize&quot;:0,&quot;monoScreenAngle&quot;:0,&quot;monoScreenSpread&quot;:0,&quot;monoScreenShape&quot;:0,&quot;monoScreenInvert&quot;:0,&quot;scanlines&quot;:0,&quot;scanlineCount&quot;:0,&quot;scanlineSoftness&quot;:0,&quot;chromaticAberration&quot;:0,&quot;chromaticAngle&quot;:0,&quot;crtCurvature&quot;:0,&quot;digitalGlitch&quot;:0,&quot;digitalGlitchColorSplit&quot;:0,&quot;digitalGlitchLineTear&quot;:0,&quot;digitalGlitchPixelate&quot;:0,&quot;digitalGlitchBlockAmount&quot;:0,&quot;digitalGlitchBlockDisplacement&quot;:0,&quot;digitalGlitchBlockOpacity&quot;:0,&quot;digitalGlitchSpeed&quot;:0,&quot;engraving&quot;:0,&quot;engravingSpacing&quot;:0.4117647058823529,&quot;engravingMinThickness&quot;:0.2,&quot;engravingMaxThickness&quot;:0.4571428571428572,&quot;engravingAngle&quot;:0.25,&quot;engravingContrast&quot;:0.4666666666666667,&quot;engravingSharpness&quot;:0.59,&quot;engravingWave&quot;:0.2,&quot;engravingWaveFrequency&quot;:0.2222222222222222,&quot;crosshatch&quot;:0,&quot;crosshatchSpacing&quot;:0.28,&quot;crosshatchThickness&quot;:0.25,&quot;crosshatchAngle&quot;:0.25,&quot;crosshatchContrast&quot;:0.3333333333333333,&quot;crosshatchEdges&quot;:0.5,&quot;crosshatchLineWeight&quot;:0,&quot;crosshatchWave&quot;:0.33,&quot;crosshatchWaveFrequency&quot;:0.2222222222222222,&quot;kuwahara&quot;:0,&quot;kuwaharaRadius&quot;:0.14285714285714285,&quot;kuwaharaSharpness&quot;:0.3125,&quot;kuwaharaSaturation&quot;:0.5},&quot;lut&quot;:null,&quot;colorSpace&quot;:&quot;rec709&quot;,&quot;wheels&quot;:{&quot;shadows&quot;:{&quot;hue&quot;:195,&quot;amount&quot;:0.08,&quot;level&quot;:0},&quot;midtones&quot;:{&quot;hue&quot;:198,&quot;amount&quot;:0,&quot;level&quot;:0},&quot;highlights&quot;:{&quot;hue&quot;:34,&quot;amount&quot;:0,&quot;level&quot;:0}},&quot;curves&quot;:{&quot;master&quot;:[[0,0.015],[0.25,0.245],[0.6,0.605],[0.88,0.875],[1,0.975]],&quot;red&quot;:[[0,0],[1,1]],&quot;green&quot;:[[0,0],[1,1]],&quot;blue&quot;:[[0,0],[1,1]]},&quot;secondaries&quot;:[{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:325,&quot;range&quot;:30,&quot;softness&quot;:20},&quot;saturation&quot;:{&quot;min&quot;:0.15,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.03,&quot;max&quot;:0.9,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:6,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.02,&quot;temperature&quot;:0,&quot;tint&quot;:0}},{&quot;enabled&quot;:true,&quot;key&quot;:{&quot;hue&quot;:{&quot;center&quot;:222,&quot;range&quot;:22,&quot;softness&quot;:16},&quot;saturation&quot;:{&quot;min&quot;:0.2,&quot;max&quot;:1,&quot;softness&quot;:0.1},&quot;luma&quot;:{&quot;min&quot;:0.05,&quot;max&quot;:0.95,&quot;softness&quot;:0.1}},&quot;correction&quot;:{&quot;hueShift&quot;:0,&quot;saturation&quot;:-0.12,&quot;luma&quot;:-0.03,&quot;temperature&quot;:0,&quot;tint&quot;:0}}]}"></video>
+        </div>
+
+        <!-- FRONT: cover lines, banner, issue line, barcode -->
+        <div id="cv-front" data-layout-allow-overflow="" data-layout-allow-overlap="">
+          <div id="cv-lines">
+            <div id="cv-kick"><span id="cv-kick-sq"></span><span id="cv-kick-txt"></span></div>
+            <div id="cv-l1" class="cv-line"></div>
+            <div id="cv-l2" class="cv-line"></div>
+          </div>
+          <div id="cv-banner"><div id="cv-slab"></div><div id="cv-ban-row"></div></div>
+          <div id="cv-issue"><div id="cv-issue-1"></div><div id="cv-price"></div></div>
+          <div id="cv-code"><div id="cv-bars"></div><div id="cv-digits"></div></div>
+        </div>
+        <div id="cv-border" data-layout-allow-overlap=""></div>
+      </div>
+
+      <script>
+        (function () {
+          // ================= CONFIG: edit these to reuse the effect =================
+          var CONFIG = {
+            duration: 3.71,                 // slot length (s); match the host data-duration and the videos' data-duration
+            footY: 220,                     // px the footage is lowered so the head overlaps only the masthead's lower part
+            push: [1.0, 1.04],              // slow push on the footage over the whole slot (plate + matte together)
+            mast: "WORRIED",                // masthead word (Anton, uppercase). 5–8 letters read best
+            mastSize: 292,                  // masthead px; lower it for longer words (keep inside the border)
+            mastTop: 176,                   // masthead box top (px). Keep the HUD band (y 100–170) clear
+            ruleY: 492,                     // red rule under the masthead
+            ruleAt: 1.75,                   // rule draws on this spoken word ("worried")
+            vol: ["VOL. 01 \u00b7 THE AI ISSUE", ""],   // small mono line under the rule (left, right). Keep the left one short: the head covers x > ~420
+            kicker: "COVER STORY",          // mono kicker, typed (one click)
+            kickerAt: 0.57,
+            linesTop: 640,                  // cover-line block top (left column, beside the face)
+            // cover lines: each word [text, local time, red?]. Words rise on their spoken word.
+            line1: [["EVERYBODY", 1.05, false]],
+            line2: [["IS", 1.59, false], ["WORRIED.", 1.75, true]],
+            bannerTop: 1262,                // red banner (must end above the subtitle band at 1436)
+            bannerAt: 2.5,                  // slab wipes in just before the first banner word
+            banner: [["REPLACED", 2.57], ["BY", 3.01], ["AI?", 3.23]],
+            issueTop: 1700,                 // issue line block (below the subtitle band AND below the root subtitle scrim, which ends at y 1660)
+            issue: "ISSUE 01 · OCT 2026",
+            price: "PRICE: YOUR JOB?",
+            codeLeft: 840, codeTop: 1694,   // barcode block
+            digits: "0 26101 60001 4",
+            borderInset: 34                 // inset border frame (px from the edges)
+          };
+          // ==========================================================================
+
+          var root = document.getElementById("fx-cover-root");
+          function $(id) { return document.getElementById(id); }
+          function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+          // ---- layout from CONFIG ----
+          var mast = $("cv-mast");
+          mast.textContent = CONFIG.mast;
+          mast.style.top = CONFIG.mastTop + "px";
+          mast.style.fontSize = CONFIG.mastSize + "px";
+          $("cv-rule").style.top = CONFIG.ruleY + "px";
+          $("cv-vol").style.top = (CONFIG.ruleY + 22) + "px";
+          $("cv-vol-l").textContent = CONFIG.vol[0];
+          $("cv-vol-r").textContent = CONFIG.vol[1];
+          $("cv-lines").style.top = CONFIG.linesTop + "px";
+          $("cv-banner").style.top = CONFIG.bannerTop + "px";
+          $("cv-issue").style.top = CONFIG.issueTop + "px";
+          $("cv-issue-1").textContent = CONFIG.issue;
+          $("cv-price").textContent = CONFIG.price;
+          var code = $("cv-code");
+          code.style.left = CONFIG.codeLeft + "px"; code.style.top = CONFIG.codeTop + "px";
+          $("cv-digits").textContent = CONFIG.digits;
+          var b = $("cv-border"), bi = CONFIG.borderInset;
+          b.style.left = bi + "px"; b.style.top = bi + "px"; b.style.width = (1080 - 2 * bi) + "px"; b.style.height = (1920 - 2 * bi) + "px";
+
+          // kicker characters (typed)
+          var kick = $("cv-kick-txt"), kchars = [];
+          CONFIG.kicker.split("").forEach(function (c) { var s = el("span", null, c === " " ? " " : c); kick.appendChild(s); kchars.push(s); });
+
+          // masked words for the cover lines and the banner
+          function words(host, list, idp) {
+            return list.map(function (w, i) {
+              var m = el("span", "cv-m"), inner = el("span", "cv-w" + (w[2] ? " cv-red" : ""), w[0]);
+              inner.id = idp + i; m.appendChild(inner); host.appendChild(m);
+              return { el: inner, t: w[1] };
+            });
+          }
+          var l1 = words($("cv-l1"), CONFIG.line1, "cv-l1w");
+          var l2 = words($("cv-l2"), CONFIG.line2, "cv-l2w");
+          var bw = words($("cv-ban-row"), CONFIG.banner, "cv-bw");
+
+          // barcode: deterministic bar pattern from a seeded hash (no Math.random)
+          function hash(n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+          var bars = $("cv-bars"), x = 0, i = 0;
+          while (x < 146) {
+            var w = 1 + Math.floor(hash(i) * 3.2), gap = 1 + Math.floor(hash(i + 50) * 3);
+            if (x + w > 148) break;
+            var bar = el("div", "cv-bar"); bar.style.left = x + "px"; bar.style.width = w + "px"; bars.appendChild(bar);
+            x += w + gap; i++;
+          }
+
+          // ---- timeline ----
+          var tl = gsap.timeline({ paused: true });
+          var T = CONFIG.duration;
+
+          // footage: lowered + slow push (identical on plate and matte groups)
+          tl.fromTo([".cv-foot"], { y: CONFIG.footY, scale: CONFIG.push[0] }, { y: CONFIG.footY, scale: CONFIG.push[1], duration: T, ease: "power1.inOut" }, 0);
+
+          // masthead: present on frame 0 (hook), settles from a hair larger
+          tl.fromTo(mast, { scale: 1.05 }, { scale: 1, duration: 1.1, ease: "expo.out" }, 0);
+          // cover furniture (border, vol line, issue line, barcode) is printed from frame 0: the hook must read as a cover instantly
+          tl.set("#cv-vol", { opacity: 0.85 }, 0);
+
+          // red rule draws on "worried"
+          tl.fromTo("#cv-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "power2.out" }, CONFIG.ruleAt);
+
+          // kicker types (one click cue at kickerAt)
+          tl.set("#cv-kick-sq", { opacity: 1 }, CONFIG.kickerAt);
+          kchars.forEach(function (s, k) { tl.set(s, { opacity: 1 }, CONFIG.kickerAt + 0.03 + k * 0.032); });
+
+          // cover-line words rise on their spoken word
+          l1.concat(l2).forEach(function (w) {
+            tl.fromTo(w.el, { yPercent: 108 }, { yPercent: 0, duration: 0.4, ease: "expo.out" }, w.t);
+          });
+
+          // banner: slab wipes, words rise inside it
+          tl.fromTo("#cv-slab", { scaleX: 0 }, { scaleX: 1, duration: 0.42, ease: "expo.out" }, CONFIG.bannerAt);
+          bw.forEach(function (w) {
+            tl.fromTo(w.el, { yPercent: 108 }, { yPercent: 0, duration: 0.4, ease: "expo.out" }, w.t);
+          });
+
+          tl.set({}, {}, T);
+          window.__timelines["fx-cover"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

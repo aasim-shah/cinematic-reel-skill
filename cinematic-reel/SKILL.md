@@ -39,7 +39,11 @@ Read `references/qc.md` before step 2, and `references/style.md`, `references/mo
 3. **Prep:** `bash .claude/skills/cinematic-reel/scripts/prep-source.sh <clip> videos/<name>` gives `assets/take.mp4`.
 4. **Face QC** on every frame, written to `FACE-QC.md` (rules in `references/qc.md`). Every hard range is hidden later by a board or the shutter.
 5. **Transcribe** for word timings. For clips over ~40 s, offer ElevenLabs Scribe (ask once per video, because it uploads the voice): send a mono MP3 of `assets/take.mp4`, then check word onsets against audio energy, since Scribe can miss a short word. Local whisper large-v3 works but is very slow on an Intel Mac.
-6. **Cut dead air:** one `<video class="take clip">` per kept range, with integer-ms timings and 0.02–0.04 s volume ramps at each edge. Alternate the track indexes so clips never share a track. Update `SEGMENTS`.
+6. **Cut retakes and silence:**
+   - **Retakes:** people repeat a line until it lands. Rebuild the script from the transcript and keep the LAST complete clean take of each line, unless the user names another. Drop false starts, restarts, fillers ("umm", "acha to") and lines the speaker abandons. Prefer a take whose face passed Face QC.
+   - **Silence:** start each kept range about 0.05–0.07 s before the first word and end it where the silence starts after the last word. Remove dead air between ranges. Confirm short pauses with `ffmpeg -af silencedetect` before trimming, because transcripts can invent a word at a cut.
+   - Post the cut list to the user as a short table (line, source range, why kept) and keep going.
+   - Build one `<video class="take clip">` per kept range, with integer-ms timings and 0.02–0.04 s volume ramps at each edge. Alternate the track indexes so clips never share a track. Update `SEGMENTS`.
 7. **Matte** for every take clip under a behind-head word: `npx hyperframes remove-background` on short subclips only (about 1.3 s of CPU per frame).
 8. **Plan beats** with `references/modules.md`. Place 3–6 creative effects from `references/effects.md` on GOOD face moments that match their trigger lines, at most one every about 6–8 s. Write `STORYBOARD.md` with one `## Frame N` per beat, naming the Face QC range it hides and the effect used.
 9. **Build:** adapt the template modules. Change the copy, the times and the board contents. Keep the tokens, motion and layers exactly. Apply the grade from `references/style.md` with `media-treatment`. For a long reel (about 45 s or more), the lead writes `index.html`, the cut plan and a builder brief (see `fx/BUILDER-BRIEF-example.md`), then about 4 builder agents build the scenes in one parallel wave, each linting and snapshotting its own files.
@@ -53,6 +57,7 @@ Read `references/qc.md` before step 2, and `references/style.md`, `references/mo
 | Need | Use |
 |---|---|
 | Hide a bad face (hard) | evidence board (module 4), ≥ 0.15 s margin |
+| A line said twice | keep the last complete clean take (step 6) |
 | Hide a short bad face (< 0.8 s) | shutter to black with the title on black (module 3), or cut it out |
 | New idea in the script | chapter title (module 2) and a new `FILE nn` label |
 | Name, source or statistic spoken | board item: clipping headline, index-card number, chart |

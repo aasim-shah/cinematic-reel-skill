@@ -179,6 +179,7 @@
       <a href="#workflow">Workflow</a>
       <a href="#style">Style</a>
       <a href="#modules">Beats</a>
+      <a href="#effects">Effects</a>
       <a href="#faq">FAQ</a>
     </nav>
   </div>
@@ -221,11 +222,14 @@
       <h2>A full edit,<br>not a filter</h2>
       <p class="sub">The skill is a complete editing system. It has a locked visual style, a working template project and a step-by-step workflow, so every video comes out the same quality. You don't have to explain the style each time.</p>
       <div class="grid3">
-        <div class="card"><h4>Cleans the voice</h4><p>It measures the raw audio for mud, hiss, clipping and dull tone, then applies a voice chain (EQ, de-esser, compression, −14 LUFS). Before and after numbers are reported.</p></div>
+        <div class="card"><h4>Upgrades the voice</h4><p>It measures the raw audio for mud, hiss, clipping and dull tone, then applies a voice chain: light denoise, EQ (less mud, more clarity and air), de-esser, compression and −14 LUFS. For unusual problems it builds a custom chain and lets you A/B it. Before and after numbers are reported.</p></div>
+        <div class="card"><h4>Removes retakes</h4><p>Said a line three times? It rebuilds the script from the transcript and keeps the last clean take of each line. False starts, restarts and fillers like "umm" are cut.</p></div>
         <div class="card"><h4>Hides bad takes</h4><p>It reviews every frame for closed eyes, looking away, odd faces and jump cuts. Each bad moment is covered by a full-screen evidence board while your voice keeps playing.</p></div>
-        <div class="card"><h4>Cuts the dead air</h4><p>Word-level transcription drives the cut list, the subtitles and the beat timing, so titles land exactly on the spoken word.</p></div>
+        <div class="card"><h4>Removes silence</h4><p>Dead air and long pauses go. Each cut starts just before the first word and ends where the silence begins, with short audio ramps so no cut clicks. The same word timings drive the subtitles and beats.</p></div>
         <div class="card"><h4>Documentary look</h4><p>A natural skin grade, 2.39 letterbox moments, film grain, a typed <code>FILE 01</code> HUD with running timecode and clean subtitles.</p></div>
         <div class="card"><h4>Motion graphics</h4><p>Chapter titles with a red hand circle, an evidence board the camera flies across, and a giant word behind your head (AI person matte).</p></div>
+        <div class="card"><h4>12 creative effects</h4><p>Cover story, frame break, chart grow, vertigo, orbit, headline wall, paper cut, phone mockup and more, placed on your best face moments, 3–6 per reel.</p></div>
+        <div class="card"><h4>Sound design</h4><p>Whooshes on the letterbox, a camera flash on names, typing clicks, a stamp and a riser into the end, mixed under the voice with a master limiter so the voice never gets pushed down.</p></div>
         <div class="card"><h4>You approve first</h4><p>Before anything renders, Claude shows a storyboard of every beat and waits for your OK. Render, loudness check and contact sheet come after.</p></div>
       </div>
     </div>
@@ -320,9 +324,9 @@ make the storyboard for @interview.mp4 but don't render yet</code></pre>
         <div class="step"><div><b>Prep the source</b><span>HDR → SDR, 1080×1920 at 30 fps, voice clean-up to −14 LUFS.</span></div></div>
         <div class="step"><div><b>Face QC</b><span>Every frame is checked for closed eyes, looking away, odd expressions and jump cuts.</span></div></div>
         <div class="step"><div><b>Transcribe</b><span>Word-level timings for cuts, subtitles and beat timing.</span></div></div>
-        <div class="step"><div><b>Cut dead air</b><span>Keeps only the good ranges, with short audio ramps at every cut.</span></div></div>
+        <div class="step"><div><b>Cut retakes &amp; silence</b><span>Keeps the last clean take of each line, drops restarts, fillers and pauses, with short audio ramps at every cut.</span></div></div>
         <div class="step"><div><b>Person matte</b><span>An AI cut-out of the speaker, so words can sit behind the head.</span></div></div>
-        <div class="step"><div><b>Plan beats</b><span>Maps the script onto the beat modules and covers every bad face.</span></div></div>
+        <div class="step"><div><b>Plan beats</b><span>Maps the script onto the beat modules, places 3–6 creative effects and covers every bad face.</span></div></div>
         <div class="step"><div><b>Build</b><span>Adapts the template: copy, timings, board contents, grade.</span></div></div>
         <div class="step"><div><b>Check</b><span>HyperFrames lint and layout check until there are zero errors.</span></div></div>
         <div class="step gate"><div><b>Storyboard gate</b><span>Snapshots every beat, shows you the board and waits for approval.</span></div></div>
@@ -406,6 +410,32 @@ make the storyboard for @interview.mp4 but don't render yet</code></pre>
     </div>
   </section>
 
+  <!-- EFFECTS -->
+  <section id="effects">
+    <div class="wrap">
+      <div class="mono kicker"><span class="sq"></span>Effects library</div>
+      <h2>Twelve effects,<br>used sparingly</h2>
+      <p class="sub">On top of the beat modules, Claude places 3–6 creative effects per reel, each on a good face moment that matches its line. At most one every 6–8 seconds: a few well-timed effects look premium, a parade looks like a template.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Effect</th><th>Used when the line is about…</th><th>On screen</th></tr></thead>
+        <tbody>
+          <tr><td><b>Cover story</b></td><td>The hook or the theme line</td><td>Your shot becomes a magazine cover, masthead behind your head</td></tr>
+          <tr><td><b>Frame break</b></td><td>Content, reels, "you watching this"</td><td>You step out of a reel card</td></tr>
+          <tr><td><b>Chart grow</b></td><td>A trend or a number with a direction</td><td>A red line chart climbs on the wall behind you</td></tr>
+          <tr><td><b>Vertigo</b></td><td>One shock claim (once per reel)</td><td>Dolly-zoom on the room while you stay still</td></tr>
+          <tr><td><b>Couch wall</b></td><td>Your work, history or routine</td><td>A lamp-lit wall of your video thumbnails behind you</td></tr>
+          <tr><td><b>Phone mockup</b></td><td>Posting, a profile, an app</td><td>A 3D phone floats beside you showing a creator profile</td></tr>
+          <tr><td><b>Paper cut + doodle boil</b></td><td>Creativity or personality</td><td>You become a paper sticker with hand-drawn doodles</td></tr>
+          <tr><td><b>Orbit</b></td><td>A list of 2–4 questions or options</td><td>Question cards orbit your head, passing behind and in front</td></tr>
+          <tr><td><b>Headline wall</b></td><td>Public fear, news, "what people say"</td><td>A wall of headline clippings; the wrong one struck, the right one circled</td></tr>
+          <tr><td><b>Pull-back reveal</b></td><td>A detail that widens to the big picture</td><td>Macro detail pulls back to the full evidence board; also hides a bad take</td></tr>
+          <tr><td><b>Zoom-through cut</b></td><td>Joining two effects</td><td>Camera flies through a red ring</td></tr>
+          <tr><td><b>Paper tear</b></td><td>Changing chapter</td><td>Full-sheet paper rip transition</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
   <!-- INSIDE -->
   <section id="inside">
     <div class="wrap">
@@ -416,7 +446,9 @@ make the storyboard for @interview.mp4 but don't render yet</code></pre>
 ├── references/
 │   ├── style.md              palette, type, grade JSON, motion, sound map
 │   ├── modules.md            the five beat modules and how to scale them
+│   ├── effects.md            the 12-effect catalog and integration rules
 │   └── qc.md                 Audio QC, Face QC, recording tips, render notes
+├── fx/                       the 12 effects as sub-compositions, notes, matte tools
 ├── scripts/
 │   ├── new-project.sh        copies the template into videos/&lt;name&gt;/
 │   ├── audio-qc.sh           voice analysis report

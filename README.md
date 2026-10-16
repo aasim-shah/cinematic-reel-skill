@@ -8,11 +8,30 @@ Landing page and install guide: https://aasim-shah.github.io/cinematic-reel-skil
 
 ## What it does
 
-- **Audio QC:** measures the raw voice for mud, hiss, clipping and dull tone, then applies a voice chain (EQ, de-esser, compression, −14 LUFS).
-- **Face QC:** reviews every frame for closed eyes, looking away and odd faces. A full-screen evidence board covers each bad moment while the voice keeps playing.
-- **Cuts dead air** from a word-level transcript, which also drives the subtitles and beat timing.
-- **12 creative effects** (cover story, frame break, chart grow, vertigo, orbit, headline wall, paper tear and more) placed on good face moments.
-- **Storyboard gate:** Claude shows every beat and waits for your approval before it renders.
+- **Voice upgrade (Audio QC):** measures the raw voice for mud, hiss, clipping, dull tone and a silent channel. Then it applies a voice chain: light denoise, EQ (less mud at 250 Hz, more clarity at 3.5 kHz and air at 9 kHz), de-esser, compression and −14 LUFS. For unusual problems it builds a custom chain and lets you A/B the raw, default and custom versions. It reports the numbers before and after.
+- **Retake removal:** people repeat a line until it lands. Claude rebuilds the script from the transcript and keeps the last clean take of each line. False starts, restarts, fillers ("umm") and abandoned lines are cut.
+- **Silence removal:** dead air and long pauses go. Each cut starts just before the first word and ends where the silence begins, with 20–40 ms audio ramps so no cut clicks.
+- **Face QC:** every frame is checked for closed eyes, looking away, odd expressions and jump cuts. A full-screen evidence board covers each bad moment while the voice keeps playing.
+- **Documentary look:** a natural-skin grade, 2.39 letterbox moments, film grain, a typed `FILE 01` HUD with running timecode, word-by-word subtitles, chapter titles with a red hand circle, and a giant word behind the speaker's head (AI person matte).
+- **12 creative effects**, 3–6 per reel, each on a good face moment that matches its line:
+
+  | Effect | Used when the line is about… |
+  |---|---|
+  | Cover story | the hook or the theme ("everybody is worried") |
+  | Frame break | content, reels, "you watching this" |
+  | Chart grow | a trend or a number with a direction |
+  | Vertigo | one shock claim (once per reel) |
+  | Couch wall | your own work, history or routine |
+  | Phone mockup | posting, a profile, an app, a personal brand |
+  | Paper cut + doodle boil | creativity or personality |
+  | Orbit | a list of 2–4 questions or options |
+  | Headline wall | public fear, news, "what people say" |
+  | Pull-back reveal | a detail that widens to the big picture (also hides a bad take) |
+  | Zoom-through cut | a transition joining two effects |
+  | Paper tear | a transition between chapters |
+
+- **Sound design:** a short whoosh as the letterbox slides in, a woosh on the shutter to black, a camera flash on names and flash cuts, one typing click per label, a soft tick when the red circle lands, a rubber-stamp hit and a sharp riser into the end. At most one click-type sound every 2 s. A master bus (+1.5 dB, then a −3 dBTP true-peak limiter) keeps the sound effects from pushing the voice down.
+- **Storyboard gate:** Claude snapshots every beat and every hidden face moment, then waits for your approval before it renders.
 
 ## Requirements
 
